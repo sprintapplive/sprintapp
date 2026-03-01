@@ -9,7 +9,7 @@ import { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import {
-  Calendar, BarChart3, Target, LogOut, User as UserIcon,
+  Calendar, BarChart3, Users, LogOut, User as UserIcon,
   Settings, ChevronDown, Mail, Sun, Moon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -20,8 +20,8 @@ interface DashboardNavProps {
 
 const navItems = [
   { href: '/', label: 'Today', icon: Calendar },
-  { href: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/goals', label: 'Goals', icon: Target },
+  { href: '/stats', label: 'Stats', icon: BarChart3 },
+  { href: '/agora', label: 'Agora', icon: Users },
 ];
 
 export function DashboardNav({ user }: DashboardNavProps) {

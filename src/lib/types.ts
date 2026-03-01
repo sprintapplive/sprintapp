@@ -52,6 +52,57 @@ export type Profile = {
   updated_at: string;
 };
 
+// Agora types
+export type WeeklyStats = {
+  id: string;
+  user_id: string;
+  week_start: string;
+  average_score: number;
+  total_sprints: number;
+  wasted_minutes: number;
+  exercise_days: number;
+  ranking_score: number;
+  tier: 'olympian' | 'spartan' | 'helot';
+  rank_position: number | null;
+  previous_rank: number | null;
+  goal_met: boolean;
+  created_at: string;
+  // Joined from profiles
+  profiles?: {
+    display_name: string | null;
+  };
+};
+
+export type Phalanx = {
+  id: string;
+  name: string;
+  join_code: string;
+  created_by: string | null;
+  total_ranking_score: number;
+  member_count: number;
+  has_penalty: boolean;
+  penalty_multiplier: number;
+  tier: 'olympian' | 'spartan' | 'helot';
+  rank_position: number | null;
+  created_at: string;
+  updated_at: string;
+  // Joined members
+  phalanx_members?: PhalanxMember[];
+};
+
+export type PhalanxMember = {
+  id: string;
+  phalanx_id: string;
+  user_id: string;
+  weekly_ranking_score: number;
+  goal_met: boolean;
+  joined_at: string;
+  // Joined from profiles
+  profiles?: {
+    display_name: string | null;
+  };
+};
+
 // Default categories with Greek-inspired colors
 export const DEFAULT_CATEGORIES = [
   { name: 'Deep Work', color: 'laurel-700', icon: 'brain' },
