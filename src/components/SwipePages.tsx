@@ -7,6 +7,7 @@ import { NewsView } from '@/components/NewsView';
 import { DailyView } from '@/components/DailyView';
 import { StatsView } from '@/components/StatsView';
 import { AgoraView } from '@/components/AgoraView';
+import { SprintMode } from '@/components/SprintMode';
 import { Category, Sprint, DailyWrapup, WeeklyGoal, WeeklyStats, Phalanx } from '@/lib/types';
 
 const PAGES = ['/news', '/', '/stats', '/agora'] as const;
@@ -195,6 +196,7 @@ export function SwipePages({
             pastGoals={pastGoals}
             wrapups={weekWrapups}
             weekStart={weekStart}
+            userId={userId}
           />
         );
       case 3:
@@ -218,9 +220,13 @@ export function SwipePages({
   // Desktop: Simple single-page render
   if (!isMobile) {
     return (
-      <main className="flex-1 container mx-auto px-4 py-6 max-w-4xl">
-        {renderPage(currentIndex)}
-      </main>
+      <>
+        <main className="flex-1 container mx-auto px-4 py-6 max-w-4xl">
+          {renderPage(currentIndex)}
+        </main>
+        {/* Sprint Mode - rendered outside main for proper fixed positioning */}
+        {currentIndex === 1 && <SprintMode />}
+      </>
     );
   }
 
@@ -270,6 +276,9 @@ export function SwipePages({
           />
         ))}
       </div>
+
+      {/* Sprint Mode - rendered outside overflow container for proper fixed positioning on mobile */}
+      {currentIndex === 1 && <SprintMode />}
     </div>
   );
 }

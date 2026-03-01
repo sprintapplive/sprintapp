@@ -98,7 +98,8 @@ export function SprintMode() {
       <button
         onClick={() => setState('ready')}
         className={cn(
-          'fixed bottom-6 right-6 z-40',
+          'fixed bottom-20 right-6 z-40',
+          'md:bottom-6',
           'w-14 h-14 rounded-full',
           'bg-gradient-to-br from-gold-400 to-gold-600',
           'shadow-[0_4px_20px_rgba(212,175,55,0.4)]',

@@ -64,6 +64,7 @@ export default async function StatsPage() {
       pastGoals={goals?.filter(g => g.week_start !== weekStart.toISOString().split('T')[0]) || []}
       wrapups={wrapups || []}
       weekStart={weekStart}
+      userId={user.id}
     />
   );
 }

@@ -28,9 +28,18 @@ interface StatsViewProps {
   pastGoals: WeeklyGoal[];
   wrapups: DailyWrapup[];
   weekStart: Date;
+  userId: string;
 }
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+// Helper to get local date string (YYYY-MM-DD) to avoid timezone issues
+const getLocalDateStr = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 export function StatsView({
   sprints,
@@ -39,6 +48,7 @@ export function StatsView({
   pastGoals,
   wrapups,
   weekStart,
+  userId,
 }: StatsViewProps) {
   const [goal, setGoal] = useState<WeeklyGoal | null>(initialGoal);
   const [editingGoal, setEditingGoal] = useState(!initialGoal);
@@ -54,20 +64,20 @@ export function StatsView({
     const sprintsByDay: Record<string, SprintWithCategory[]> = {};
     DAYS.forEach((day, index) => {
       const date = new Date(weekStart);
-      date.setDate(weekStart.getDate() + index);
-      const dateStr = date.toISOString().split('T')[0];
+      date.setDate(date.getDate() + index);
+      const dateStr = getLocalDateStr(date);
       sprintsByDay[dateStr] = [];
     });
 
     sprints.forEach(sprint => {
-      const dateStr = new Date(sprint.block_start).toISOString().split('T')[0];
+      const dateStr = getLocalDateStr(new Date(sprint.block_start));
       if (sprintsByDay[dateStr]) {
         sprintsByDay[dateStr].push(sprint);
       }
     });
 
     // Today's stats
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateStr(new Date());
     const todaySprints = sprintsByDay[todayStr] || [];
     const todayAvgScore = todaySprints.length > 0
       ? todaySprints.reduce((sum, s) => sum + s.score, 0) / todaySprints.length
@@ -176,9 +186,10 @@ export function StatsView({
 
   const handleSaveGoal = async () => {
     setSaving(true);
-    const weekStartStr = weekStart.toISOString().split('T')[0];
+    const weekStartStr = getLocalDateStr(weekStart);
 
     const goalData = {
+      user_id: userId,
       week_start: weekStartStr,
       target_average_score: targetScore,
       max_wasted_minutes: maxWasted,
@@ -193,7 +204,9 @@ export function StatsView({
         .select()
         .single();
 
-      if (!error && data) {
+      if (error) {
+        console.error('Error updating goal:', error);
+      } else if (data) {
         setGoal(data);
         setEditingGoal(false);
       }
@@ -204,7 +217,9 @@ export function StatsView({
         .select()
         .single();
 
-      if (!error && data) {
+      if (error) {
+        console.error('Error inserting goal:', error);
+      } else if (data) {
         setGoal(data);
         setEditingGoal(false);
       }

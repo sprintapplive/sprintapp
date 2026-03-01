@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Timeline, DateNavigator } from '@/components/timeline/Timeline';
 import { WrapupForm } from '@/components/daily-wrapup/WrapupForm';
-import { SprintMode } from '@/components/SprintMode';
 import { Category, Sprint, DailyWrapup } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
@@ -149,8 +148,6 @@ export function DailyView({
         </Tabs>
       )}
 
-      {/* Sprint Mode - Pomodoro Timer */}
-      <SprintMode />
     </div>
   );
 }
