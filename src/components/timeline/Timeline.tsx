@@ -21,6 +21,11 @@ export function Timeline({ initialSprints, initialCategories, date, userId }: Ti
   const [visibleRange, setVisibleRange] = useState({ start: 12, end: 44 }); // 6am to 10pm default
 
   const supabase = createClient();
+
+  // Sync sprints when initialSprints changes (e.g., date change)
+  useEffect(() => {
+    setSprints(initialSprints);
+  }, [initialSprints]);
   const allTimeBlocks = getTimeBlocks(date);
   const timeBlocks = allTimeBlocks.slice(visibleRange.start, visibleRange.end);
 

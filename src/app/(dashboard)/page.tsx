@@ -57,7 +57,7 @@ export default async function DashboardPage() {
     .from('daily_wrapups')
     .select('*')
     .eq('date', todayStr)
-    .single();
+    .maybeSingle();
 
   return (
     <DailyView

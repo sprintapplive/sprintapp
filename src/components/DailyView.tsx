@@ -57,7 +57,7 @@ export function DailyView({
           .from('daily_wrapups')
           .select('*')
           .eq('date', date.toISOString().split('T')[0])
-          .single(),
+          .maybeSingle(),
       ]);
 
       setSprints(sprintsResult.data || []);
