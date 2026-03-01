@@ -126,16 +126,17 @@ export const CATEGORY_COLORS: Record<string, string> = {
 };
 
 // Score-based colors for time blocks
+// Gradient: 3 is almost white/pale, progressively darker to 9
 export const SCORE_COLORS: Record<number, string> = {
   1: '#f87171',  // red-400 (wasted)
   2: '#f87171',  // red-400
-  3: '#b8d4b8',  // laurel-200 (lightest green)
-  4: '#8fb98f',  // laurel-300
-  5: '#6a9e6a',  // laurel-400
-  6: '#4a6741',  // laurel-500
-  7: '#3d5636',  // laurel-600
-  8: '#2d4a28',  // laurel-700
-  9: '#233a1f',  // laurel-800 (darkest green)
+  3: '#e8f5e8',  // very pale green (almost white)
+  4: '#c5e6c5',  // light mint green
+  5: '#8fcc8f',  // soft green
+  6: '#5aad5a',  // medium green
+  7: '#3d8b3d',  // forest green
+  8: '#2d6b2d',  // dark green
+  9: '#1a4a1a',  // very dark green
   10: '#d4af37', // gold-400
 };
 

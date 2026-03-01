@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import {
   Calendar, BarChart3, Users, LogOut, User as UserIcon,
-  Settings, ChevronDown, Mail, Sun, Moon
+  Settings, ChevronDown, Mail, Sun, Moon, Newspaper
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +19,7 @@ interface DashboardNavProps {
 }
 
 const navItems = [
+  { href: '/news', label: 'News', icon: Newspaper },
   { href: '/', label: 'Today', icon: Calendar },
   { href: '/stats', label: 'Stats', icon: BarChart3 },
   { href: '/agora', label: 'Agora', icon: Users },

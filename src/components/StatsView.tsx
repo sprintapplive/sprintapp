@@ -50,7 +50,7 @@ export function StatsView({
   const supabase = createClient();
 
   // Process data for charts
-  const { scoreData, categoryData, weeklyData, stats } = useMemo(() => {
+  const { scoreData, categoryData, weeklyData, stats, todayStats } = useMemo(() => {
     const sprintsByDay: Record<string, SprintWithCategory[]> = {};
     DAYS.forEach((day, index) => {
       const date = new Date(weekStart);
@@ -65,6 +65,37 @@ export function StatsView({
         sprintsByDay[dateStr].push(sprint);
       }
     });
+
+    // Today's stats
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todaySprints = sprintsByDay[todayStr] || [];
+    const todayAvgScore = todaySprints.length > 0
+      ? todaySprints.reduce((sum, s) => sum + s.score, 0) / todaySprints.length
+      : 0;
+    const todayWasted = todaySprints.filter(s => s.categories?.name === 'Wasted').length * 30;
+    const todayHighScore = todaySprints.length > 0
+      ? Math.max(...todaySprints.map(s => s.score))
+      : 0;
+
+    // Today's category breakdown
+    const todayCategoryCount: Record<string, { count: number; color: string }> = {};
+    todaySprints.forEach(sprint => {
+      const categoryName = sprint.categories?.name || 'Unknown';
+      const categoryColor = sprint.categories?.color || 'marble-200';
+      if (!todayCategoryCount[categoryName]) {
+        todayCategoryCount[categoryName] = { count: 0, color: categoryColor };
+      }
+      todayCategoryCount[categoryName].count++;
+    });
+    const todayCategories = Object.entries(todayCategoryCount)
+      .map(([name, data]) => ({
+        name,
+        count: data.count,
+        minutes: data.count * 30,
+        color: data.color,
+        percentage: todaySprints.length > 0 ? Math.round((data.count / todaySprints.length) * 100) : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
 
     const scoreData = Object.entries(sprintsByDay).map(([date, daySprints], index) => {
       const avgScore = daySprints.length > 0
@@ -125,6 +156,14 @@ export function StatsView({
         wastedMinutes,
         exerciseDays,
       },
+      todayStats: {
+        sprints: todaySprints.length,
+        minutes: todaySprints.length * 30,
+        averageScore: Math.round(todayAvgScore * 10) / 10,
+        wastedMinutes: todayWasted,
+        highScore: todayHighScore,
+        categories: todayCategories,
+      },
     };
   }, [sprints, wrapups, weekStart]);
 
@@ -173,8 +212,130 @@ export function StatsView({
     setSaving(false);
   };
 
+  const formatToday = () => {
+    return new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  };
+
   return (
     <div className="space-y-6">
+      {/* Today's Stats */}
+      <div className={cn(
+        'rounded-xl overflow-hidden',
+        'bg-gradient-to-br from-gold-900/20 via-laurel-900/30 to-olympus-900/50',
+        'border border-gold-400/20',
+        'shadow-[0_4px_20px_rgba(212,175,55,0.1)]'
+      )}>
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-border/30 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gold-400/20 flex items-center justify-center">
+              <Zap className="h-5 w-5 text-gold-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold italic text-gold-400">Today</h2>
+              <p className="text-xs text-muted-foreground">{formatToday()}</p>
+            </div>
+          </div>
+          {todayStats.sprints > 0 && (
+            <div className="text-right">
+              <div className={cn(
+                'text-3xl font-black italic',
+                todayStats.averageScore >= 7 ? 'text-gold-400' : todayStats.averageScore >= 5 ? 'text-foreground' : 'text-red-400'
+              )}>
+                {todayStats.averageScore}
+              </div>
+              <div className="text-xs text-muted-foreground">avg score</div>
+            </div>
+          )}
+        </div>
+
+        {todayStats.sprints > 0 ? (
+          <div className="p-5 space-y-5">
+            {/* Quick Stats Row */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className={cn(
+                'p-3 rounded-xl text-center',
+                'bg-background/50 border border-border/30'
+              )}>
+                <div className="text-2xl font-black italic text-foreground">{todayStats.sprints}</div>
+                <div className="text-xs text-muted-foreground">Sprints</div>
+              </div>
+              <div className={cn(
+                'p-3 rounded-xl text-center',
+                'bg-background/50 border border-border/30'
+              )}>
+                <div className="text-2xl font-black italic text-foreground">
+                  {todayStats.minutes >= 60
+                    ? `${Math.floor(todayStats.minutes / 60)}h ${todayStats.minutes % 60}m`
+                    : `${todayStats.minutes}m`
+                  }
+                </div>
+                <div className="text-xs text-muted-foreground">Tracked</div>
+              </div>
+              <div className={cn(
+                'p-3 rounded-xl text-center',
+                'bg-background/50 border border-border/30'
+              )}>
+                <div className={cn(
+                  'text-2xl font-black italic',
+                  todayStats.highScore === 10 ? 'text-gold-400' : 'text-foreground'
+                )}>
+                  {todayStats.highScore}
+                </div>
+                <div className="text-xs text-muted-foreground">Best</div>
+              </div>
+            </div>
+
+            {/* Category Breakdown */}
+            {todayStats.categories.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Time Breakdown
+                </h3>
+
+                {/* Stacked bar */}
+                <div className="h-3 rounded-full overflow-hidden flex bg-background/30">
+                  {todayStats.categories.map((cat, idx) => (
+                    <div
+                      key={cat.name}
+                      className="h-full transition-all"
+                      style={{
+                        width: `${cat.percentage}%`,
+                        backgroundColor: CATEGORY_COLORS[cat.color] || '#4a6741',
+                      }}
+                      title={`${cat.name}: ${cat.minutes}m (${cat.percentage}%)`}
+                    />
+                  ))}
+                </div>
+
+                {/* Category list */}
+                <div className="grid grid-cols-2 gap-2">
+                  {todayStats.categories.slice(0, 6).map((cat) => (
+                    <div
+                      key={cat.name}
+                      className="flex items-center gap-2 text-sm"
+                    >
+                      <div
+                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: CATEGORY_COLORS[cat.color] || '#4a6741' }}
+                      />
+                      <span className="truncate text-muted-foreground">{cat.name}</span>
+                      <span className="ml-auto font-bold text-foreground">{cat.minutes}m</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="p-8 text-center">
+            <Clock className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-muted-foreground">No sprints logged today</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Start tracking on the Today page</p>
+          </div>
+        )}
+      </div>
+
       {/* Week header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-black italic text-foreground">Weekly Stats</h1>

@@ -147,8 +147,8 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
     ? getScoreColor(sprint.score, category?.name)
     : undefined;
 
-  // Scores 3-4 have light backgrounds requiring dark text
-  const isLightBg = sprint && (sprint.score === 3 || sprint.score === 4);
+  // Scores 3-5 have light backgrounds requiring dark text
+  const isLightBg = sprint && (sprint.score >= 3 && sprint.score <= 5);
 
   const Icon = category ? iconMap[category.icon] || Clock : Clock;
 
