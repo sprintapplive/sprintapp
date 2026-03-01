@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Timeline, DateNavigator } from '@/components/timeline/Timeline';
 import { WrapupForm } from '@/components/daily-wrapup/WrapupForm';
@@ -30,43 +30,59 @@ export function DailyView({
 
   const supabase = createClient();
 
+  // Fetch data for a specific date
+  const fetchData = useCallback(async (targetDate: Date, showLoading = true) => {
+    if (showLoading) setLoading(true);
+
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const [sprintsResult, wrapupResult] = await Promise.all([
+      supabase
+        .from('sprints')
+        .select('*')
+        .gte('block_start', startOfDay.toISOString())
+        .lte('block_start', endOfDay.toISOString())
+        .order('block_start', { ascending: true }),
+      supabase
+        .from('daily_wrapups')
+        .select('*')
+        .eq('date', targetDate.toISOString().split('T')[0])
+        .maybeSingle(),
+    ]);
+
+    setSprints(sprintsResult.data || []);
+    setWrapup(wrapupResult.data);
+    if (showLoading) setLoading(false);
+  }, [supabase]);
+
   // Fetch data when date changes
   useEffect(() => {
-    const fetchData = async () => {
-      if (date.toDateString() === initialDate.toDateString()) {
-        setSprints(initialSprints);
-        setWrapup(initialWrapup);
-        return;
+    fetchData(date);
+  }, [date, fetchData]);
+
+  // Auto-refresh when page becomes visible (user navigates back)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchData(date, false); // Silent refresh
       }
-
-      setLoading(true);
-
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      const [sprintsResult, wrapupResult] = await Promise.all([
-        supabase
-          .from('sprints')
-          .select('*')
-          .gte('block_start', startOfDay.toISOString())
-          .lte('block_start', endOfDay.toISOString())
-          .order('block_start', { ascending: true }),
-        supabase
-          .from('daily_wrapups')
-          .select('*')
-          .eq('date', date.toISOString().split('T')[0])
-          .maybeSingle(),
-      ]);
-
-      setSprints(sprintsResult.data || []);
-      setWrapup(wrapupResult.data);
-      setLoading(false);
     };
 
-    fetchData();
-  }, [date, initialDate, initialSprints, initialWrapup, supabase]);
+    const handleFocus = () => {
+      fetchData(date, false); // Silent refresh
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [date, fetchData]);
 
   const handleDateChange = (newDate: Date) => {
     setDate(newDate);
