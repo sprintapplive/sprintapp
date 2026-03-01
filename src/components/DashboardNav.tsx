@@ -54,7 +54,7 @@ export function DashboardNav({ user }: DashboardNavProps) {
               alt="Sprint"
               width={32}
               height={32}
-              className="w-8 h-8"
+              className="w-8 h-8 dark:invert dark:brightness-200"
             />
             <span className="text-xl font-black italic text-foreground">Sprint</span>
           </Link>

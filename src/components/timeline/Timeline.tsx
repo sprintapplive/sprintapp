@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { TimeBlock } from './TimeBlock';
-import { SprintLoggerScreen } from './SprintLoggerScreen';
 import { Category, Sprint, getTimeBlocks, getCurrentTimeBlock } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, RefreshCw, ChevronUp, ChevronDown } from 'lucide-react';
@@ -18,8 +17,6 @@ interface TimelineProps {
 export function Timeline({ initialSprints, initialCategories, date, userId }: TimelineProps) {
   const [sprints, setSprints] = useState<Sprint[]>(initialSprints);
   const [categories] = useState<Category[]>(initialCategories);
-  const [selectedBlock, setSelectedBlock] = useState<Date | null>(null);
-  const [showLogger, setShowLogger] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [visibleRange, setVisibleRange] = useState({ start: 12, end: 44 }); // 6am to 10pm default
 
@@ -61,17 +58,9 @@ export function Timeline({ initialSprints, initialCategories, date, userId }: Ti
     setRefreshing(false);
   };
 
-  // Handle block click
-  const handleBlockClick = (blockStart: Date) => {
-    setSelectedBlock(blockStart);
-    setShowLogger(true);
-  };
-
-  // Save sprint
-  const handleSaveSprint = async (data: { categoryId: string; description: string; score: number }) => {
-    if (!selectedBlock) return;
-
-    const existingSprint = getSprintForBlock(selectedBlock);
+  // Save sprint for a specific block
+  const handleSaveSprint = async (blockStart: Date, data: { categoryId: string; description: string; score: number }) => {
+    const existingSprint = getSprintForBlock(blockStart);
 
     if (existingSprint) {
       // Update existing sprint
@@ -94,12 +83,12 @@ export function Timeline({ initialSprints, initialCategories, date, userId }: Ti
         console.error('Error updating sprint:', error);
       }
     } else {
-      // Create new sprint - INCLUDE user_id!
+      // Create new sprint
       const { data: newSprint, error } = await supabase
         .from('sprints')
         .insert({
           user_id: userId,
-          block_start: selectedBlock.toISOString(),
+          block_start: blockStart.toISOString(),
           category_id: data.categoryId,
           description: data.description || null,
           score: data.score,
@@ -115,10 +104,9 @@ export function Timeline({ initialSprints, initialCategories, date, userId }: Ti
     }
   };
 
-  // Delete sprint
-  const handleDeleteSprint = async () => {
-    if (!selectedBlock) return;
-    const existingSprint = getSprintForBlock(selectedBlock);
+  // Delete sprint for a specific block
+  const handleDeleteSprint = async (blockStart: Date) => {
+    const existingSprint = getSprintForBlock(blockStart);
     if (!existingSprint) return;
 
     const { error } = await supabase
@@ -157,22 +145,6 @@ export function Timeline({ initialSprints, initialCategories, date, userId }: Ti
   const averageScore = totalSprints > 0
     ? (sprints.reduce((sum, s) => sum + s.score, 0) / totalSprints).toFixed(1)
     : '-';
-
-  const selectedSprint = selectedBlock ? getSprintForBlock(selectedBlock) : undefined;
-
-  // If showing logger, render full screen
-  if (showLogger && selectedBlock) {
-    return (
-      <SprintLoggerScreen
-        blockStart={selectedBlock}
-        categories={categories}
-        existingSprint={selectedSprint}
-        onSave={handleSaveSprint}
-        onDelete={selectedSprint ? handleDeleteSprint : undefined}
-        onClose={() => setShowLogger(false)}
-      />
-    );
-  }
 
   return (
     <div className="space-y-4">
@@ -224,7 +196,9 @@ export function Timeline({ initialSprints, initialCategories, date, userId }: Ti
                 blockStart={block}
                 sprint={sprint}
                 category={category}
-                onClick={() => handleBlockClick(block)}
+                categories={categories}
+                onSave={(data) => handleSaveSprint(block, data)}
+                onDelete={sprint ? () => handleDeleteSprint(block) : undefined}
               />
             </div>
           );

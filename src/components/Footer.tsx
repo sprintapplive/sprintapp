@@ -10,11 +10,10 @@ export function Footer() {
             alt="Sprint"
             width={16}
             height={16}
-            className="w-4 h-4 opacity-60"
+            className="w-4 h-4 opacity-60 dark:invert dark:brightness-200"
           />
           <span className="font-bold italic">Sprint</span>
-          <span className="opacity-50">|</span>
-          <span>Track your time in 30-minute increments</span>
+          
         </div>
       </div>
     </footer>

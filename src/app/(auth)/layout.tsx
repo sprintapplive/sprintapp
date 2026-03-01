@@ -18,7 +18,7 @@ export default function AuthLayout({
                 alt="Sprint"
                 width={48}
                 height={48}
-                className="w-12 h-12"
+                className="w-12 h-12 dark:invert dark:brightness-200"
               />
               <h1 className="text-4xl font-black italic text-foreground">Sprint</h1>
             </div>
