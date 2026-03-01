@@ -29,6 +29,7 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
   const [isEditing, setIsEditing] = useState(false);
   const [categoryIndex, setCategoryIndex] = useState(0);
   const [showNotes, setShowNotes] = useState(false);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -218,24 +219,65 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
           </button>
         </div>
 
-        {/* Mobile swipe hint */}
-        <div className="sm:hidden text-center py-1 bg-black/20">
-          <span className="text-white/60 text-xs">Swipe to change category</span>
-        </div>
+        {/* Mobile swipe hint / tap to expand */}
+        <button
+          className="sm:hidden w-full text-center py-1 bg-black/20"
+          onClick={() => setShowCategoryPicker(!showCategoryPicker)}
+        >
+          <span className="text-white/60 text-xs">
+            {showCategoryPicker ? 'Tap to collapse' : 'Swipe or tap to change'}
+          </span>
+        </button>
 
-        {/* Category dots (mobile) */}
-        <div className="sm:hidden flex justify-center gap-1.5 py-2 bg-card">
-          {categories.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setCategoryIndex(idx)}
-              className={cn(
-                'w-2 h-2 rounded-full transition-all',
-                idx === categoryIndex ? 'bg-gold-400 w-4' : 'bg-muted-foreground/30'
-              )}
-            />
-          ))}
-        </div>
+        {/* Category dots (mobile) - tap to expand picker */}
+        {!showCategoryPicker ? (
+          <div className="sm:hidden flex justify-center gap-1.5 py-2 bg-card">
+            {categories.map((cat, idx) => (
+              <button
+                key={idx}
+                onClick={() => setShowCategoryPicker(true)}
+                className={cn(
+                  'w-2 h-2 rounded-full transition-all',
+                  idx === categoryIndex ? 'bg-gold-400 w-4' : 'bg-muted-foreground/30'
+                )}
+              />
+            ))}
+          </div>
+        ) : (
+          /* Expanded category picker (mobile) */
+          <div className="sm:hidden bg-card border-t border-border/50 p-2">
+            <div className="grid grid-cols-3 gap-2">
+              {categories.map((cat, idx) => {
+                const CatIcon = iconMap[cat.icon] || Circle;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => {
+                      setCategoryIndex(idx);
+                      setShowCategoryPicker(false);
+                    }}
+                    className={cn(
+                      'flex flex-col items-center gap-1 p-2 rounded-lg transition-all',
+                      idx === categoryIndex
+                        ? 'bg-gold-400/20 ring-2 ring-gold-400'
+                        : 'bg-muted/30 hover:bg-muted/50'
+                    )}
+                  >
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: CATEGORY_COLORS[cat.color] }}
+                    >
+                      <CatIcon className="h-4 w-4 text-white" />
+                    </div>
+                    <span className="text-xs font-medium truncate w-full text-center">
+                      {cat.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Desktop: Category dropdown alternative */}
         <div className="hidden sm:block px-3 py-2 bg-card border-t border-border/50">

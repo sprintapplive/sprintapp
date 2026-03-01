@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Profile, Category, CATEGORY_COLORS } from '@/lib/types';
 import {
   User as UserIcon, Mail, Save, Bell, Palette, Plus, Pencil, Check, X,
-  Brain, Briefcase, Dumbbell, Moon, Users, XCircle, Sparkles, BookOpen, Coffee, Heart
+  Brain, Briefcase, Dumbbell, Moon, Users, XCircle, Sparkles, BookOpen, Coffee, Heart,
+  ChevronUp, ChevronDown, GripVertical
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -156,6 +157,17 @@ export function AccountView({ user, profile, categories: initialCategories }: Ac
   const getCategoryIcon = (iconName: string) => {
     const IconComponent = ICON_MAP[iconName] || Sparkles;
     return IconComponent;
+  };
+
+  const moveCategory = (index: number, direction: 'up' | 'down') => {
+    const newCategories = [...categories];
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+
+    if (newIndex < 0 || newIndex >= categories.length) return;
+
+    // Swap
+    [newCategories[index], newCategories[newIndex]] = [newCategories[newIndex], newCategories[index]];
+    setCategories(newCategories);
   };
 
   return (
@@ -310,7 +322,7 @@ export function AccountView({ user, profile, categories: initialCategories }: Ac
 
         {/* Category list */}
         <div className="space-y-2">
-          {categories.map((category) => {
+          {categories.map((category, index) => {
             const IconComp = getCategoryIcon(category.icon);
             const isEditing = editingId === category.id;
 
@@ -318,11 +330,37 @@ export function AccountView({ user, profile, categories: initialCategories }: Ac
               <div
                 key={category.id}
                 className={cn(
-                  'flex items-center gap-3 p-3 rounded-xl transition-all',
+                  'flex items-center gap-2 p-3 rounded-xl transition-all',
                   'bg-card border border-border/50',
                   isEditing && 'ring-2 ring-gold-400/50'
                 )}
               >
+                {/* Reorder buttons */}
+                {!isEditing && (
+                  <div className="flex flex-col gap-0.5">
+                    <button
+                      onClick={() => moveCategory(index, 'up')}
+                      disabled={index === 0}
+                      className={cn(
+                        'p-0.5 rounded transition-colors',
+                        index === 0 ? 'text-muted-foreground/30' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      )}
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => moveCategory(index, 'down')}
+                      disabled={index === categories.length - 1}
+                      className={cn(
+                        'p-0.5 rounded transition-colors',
+                        index === categories.length - 1 ? 'text-muted-foreground/30' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      )}
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+
                 {isEditing ? (
                   // Editing mode
                   <div className="flex-1 space-y-3">
