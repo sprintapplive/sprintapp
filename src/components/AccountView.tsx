@@ -132,6 +132,7 @@ export function AccountView({ user, profile, categories: initialCategories }: Ac
     const { data, error } = await supabase
       .from('categories')
       .insert({
+        user_id: user.id,
         name: newCategoryName.trim(),
         color: newCategoryColor,
         icon: newCategoryIcon,
@@ -140,7 +141,12 @@ export function AccountView({ user, profile, categories: initialCategories }: Ac
       .select()
       .single();
 
-    if (!error && data) {
+    if (error) {
+      console.error('Error adding category:', error);
+      return;
+    }
+
+    if (data) {
       setCategories([...categories, data]);
       setNewCategoryName('');
       setShowAddCategory(false);
