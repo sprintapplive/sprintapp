@@ -1,36 +1,163 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sprint
 
-## Getting Started
+A mobile-first, desktop-responsive productivity app that helps you track your time in 30-minute increments. Built with Greek mythology-inspired aesthetics featuring deep greens, gold accents, and marble backgrounds.
 
-First, run the development server:
+## Features
+
+- **30-Minute Sprint Tracking**: Log your activities in half-hour blocks throughout the day
+- **Category System**: Preset categories (Deep Work, Work, Rest, Exercise, Social, Wasted) plus custom categories
+- **Daily Timeline**: Visual overview of your day with color-coded sprints
+- **Daily Wrap-up**: End-of-day reflection with exercise and eating scores
+- **Analytics Dashboard**: Score trends, category breakdowns, and weekly activity charts
+- **Weekly Goals**: Set targets for average score and maximum wasted time
+- **Automated Daily Reports**: API endpoint and Supabase Edge Function for daily summaries
+
+## Tech Stack
+
+- **Framework**: Next.js 14+ (App Router)
+- **Styling**: Tailwind CSS + shadcn/ui
+- **Database/Auth**: Supabase (PostgreSQL + Auth)
+- **Charts**: Recharts
+- **Deployment**: Ready for Vercel
+
+## Setup Instructions
+
+### 1. Clone and Install Dependencies
+
+```bash
+cd sprint
+npm install
+```
+
+### 2. Set Up Supabase
+
+1. Go to [supabase.com](https://supabase.com) and create an account or sign in
+2. Click "New Project" and select your organization
+3. Enter project name: "sprint-app" (or your preference)
+4. Generate a strong database password (save it!)
+5. Select a region closest to you
+6. Wait for project to provision (~2 minutes)
+
+### 3. Configure Environment Variables
+
+1. Go to Settings > API in your Supabase dashboard
+2. Copy the project URL and anon key
+3. Create `.env.local` file:
+
+```bash
+cp .env.local.example .env.local
+```
+
+4. Fill in the values:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+
+# Optional: For service role operations (daily reports)
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# Optional: For daily report webhook (Make.com integration)
+DAILY_REPORT_WEBHOOK_URL=your-webhook-url
+DAILY_REPORT_SECRET=your-secret-key
+```
+
+### 4. Run Database Migrations
+
+Option A: Using Supabase Dashboard
+1. Go to SQL Editor in your Supabase dashboard
+2. Copy the contents of `supabase/migrations/001_initial_schema.sql`
+3. Paste and run the SQL
+
+Option B: Using Supabase CLI
+```bash
+npx supabase db push
+```
+
+### 5. Start Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit [http://localhost:3000](http://localhost:3000) to see the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+sprint/
+├── src/
+│   ├── app/
+│   │   ├── (auth)/              # Auth pages (login, signup)
+│   │   ├── (dashboard)/         # Main app pages
+│   │   ├── api/                 # API routes
+│   │   └── auth/callback/       # Supabase auth callback
+│   ├── components/
+│   │   ├── ui/                  # shadcn/ui components
+│   │   ├── timeline/            # Timeline components
+│   │   ├── analytics/           # Chart components
+│   │   └── daily-wrapup/        # Wrapup form
+│   └── lib/
+│       ├── supabase/            # Supabase client utilities
+│       ├── types.ts             # TypeScript types
+│       └── utils.ts             # Utility functions
+├── supabase/
+│   ├── migrations/              # Database migrations
+│   └── functions/               # Edge functions
+└── public/                      # Static assets
+```
 
-## Learn More
+## Database Schema
 
-To learn more about Next.js, take a look at the following resources:
+### Tables
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **profiles**: Extended user info (linked to auth.users)
+- **sprints**: 30-min time blocks with category, description, score
+- **categories**: User-customizable categories
+- **daily_wrapups**: End-of-day review data
+- **weekly_goals**: Target average score, max wasted minutes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Row Level Security
 
-## Deploy on Vercel
+All tables have RLS enabled to ensure users can only access their own data.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Daily Reports
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### API Endpoint
+
+POST `/api/daily-report` to generate daily reports for all users.
+
+Headers:
+- `Authorization: Bearer YOUR_SECRET_KEY`
+
+### Supabase Edge Function
+
+Deploy the edge function to run at 11 PM Mountain Time:
+
+```bash
+supabase functions deploy daily-report
+```
+
+Configure a scheduled trigger in Supabase:
+- Go to Database > Extensions and enable `pg_cron`
+- Create a cron job to call the function at 11 PM MT daily
+
+## Color Palette
+
+| Color | Usage |
+|-------|-------|
+| Laurel (green) | Primary actions, positive states |
+| Gold | Accents, highlights, exercise |
+| Marble (neutral) | Backgrounds, rest category |
+| Olympus (dark) | Dark mode backgrounds |
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## License
+
+MIT
