@@ -17,10 +17,17 @@ export default async function AccountPage() {
     .eq('id', user.id)
     .single();
 
+  // Get user's categories
+  const { data: categories } = await supabase
+    .from('categories')
+    .select('*')
+    .order('created_at', { ascending: true });
+
   return (
     <AccountView
       user={user}
       profile={profile}
+      categories={categories || []}
     />
   );
 }
