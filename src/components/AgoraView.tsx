@@ -51,17 +51,15 @@ function GreekColumns() {
   );
 }
 
-// Countdown timer to next Friday 5 PM MT
+// Countdown timer to next Friday 11 PM MST
 function useCountdown() {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
-    const getNextFriday5PM = () => {
+    const getNextFriday11PM = () => {
       const now = new Date();
-      // Convert to Mountain Time (UTC-7 or UTC-6 depending on DST)
-      const mtOffset = -7; // Mountain Standard Time
-      const utcHours = now.getUTCHours();
-      const mtHours = utcHours + mtOffset;
+      // Mountain Standard Time is UTC-7
+      const mtOffset = -7;
 
       const target = new Date(now);
       const dayOfWeek = target.getDay();
@@ -69,24 +67,24 @@ function useCountdown() {
       // Calculate days until Friday (5)
       let daysUntilFriday = (5 - dayOfWeek + 7) % 7;
 
-      // If it's Friday, check if we're past 5 PM MT
+      // If it's Friday, check if we're past 11 PM MT
       if (daysUntilFriday === 0) {
         const currentMTHour = (now.getUTCHours() + mtOffset + 24) % 24;
-        if (currentMTHour >= 17) {
+        if (currentMTHour >= 23) {
           daysUntilFriday = 7; // Next Friday
         }
       }
 
       target.setDate(target.getDate() + daysUntilFriday);
-      // Set to 5 PM MT (17:00 MT = 00:00 UTC next day in winter, 23:00 UTC same day in summer)
-      target.setUTCHours(17 - mtOffset, 0, 0, 0);
+      // Set to 11 PM MST (23:00 MST = 06:00 UTC next day)
+      target.setUTCHours(23 - mtOffset, 0, 0, 0);
 
       return target;
     };
 
     const updateCountdown = () => {
       const now = new Date();
-      const target = getNextFriday5PM();
+      const target = getNextFriday11PM();
       const diff = target.getTime() - now.getTime();
 
       if (diff <= 0) {
