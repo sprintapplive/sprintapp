@@ -153,6 +153,7 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
   if (isEditing) {
     return (
       <div
+        data-editing="true"
         className={cn(
           'relative w-full rounded-xl overflow-hidden transition-all',
           'border-2 border-gold-400',

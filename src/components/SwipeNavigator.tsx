@@ -7,9 +7,6 @@ import { cn } from '@/lib/utils';
 const PAGES = ['/', '/stats', '/agora'] as const;
 const PAGE_LABELS = ['Today', 'Stats', 'Agora'] as const;
 
-// Edge zone width in pixels - swipes must start within this distance from screen edge
-const EDGE_ZONE = 40;
-
 interface SwipeNavigatorProps {
   children: ReactNode;
 }
@@ -19,7 +16,7 @@ export function SwipeNavigator({ children }: SwipeNavigatorProps) {
   const pathname = usePathname();
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
-  const isEdgeSwipe = useRef<boolean>(false);
+  const canSwipe = useRef<boolean>(true);
   const [isNavigating, setIsNavigating] = useState(false);
 
   const currentIndex = PAGES.indexOf(pathname as typeof PAGES[number]);
@@ -35,22 +32,19 @@ export function SwipeNavigator({ children }: SwipeNavigatorProps) {
   }, [pathname]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    const touchX = e.touches[0].clientX;
-    const screenWidth = window.innerWidth;
+    // Check if any editor/modal is open by looking for the data attribute
+    const isEditorOpen = document.querySelector('[data-editing="true"]') !== null;
+    canSwipe.current = !isEditorOpen;
 
-    // Only track swipes that start from the left or right edge
-    // This prevents conflicts with timeline swipe-to-select
-    isEdgeSwipe.current = touchX < EDGE_ZONE || touchX > screenWidth - EDGE_ZONE;
-
-    touchStartX.current = touchX;
+    touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (touchStartX.current === null || touchStartY.current === null) return;
 
-    // Only navigate if the swipe started from an edge
-    if (!isEdgeSwipe.current) {
+    // Don't navigate if an editor was open when touch started
+    if (!canSwipe.current) {
       touchStartX.current = null;
       touchStartY.current = null;
       return;
@@ -62,16 +56,16 @@ export function SwipeNavigator({ children }: SwipeNavigatorProps) {
     const deltaY = touchEndY - touchStartY.current;
 
     // Only trigger if horizontal swipe is dominant and significant
-    const minSwipeDistance = 60;
-    const isHorizontalSwipe = Math.abs(deltaX) > Math.abs(deltaY) * 1.5;
+    const minSwipeDistance = 80;
+    const isHorizontalSwipe = Math.abs(deltaX) > Math.abs(deltaY) * 2;
 
     if (isHorizontalSwipe && Math.abs(deltaX) > minSwipeDistance) {
       if (deltaX > 0 && currentIndex > 0) {
-        // Swipe right from left edge - go to previous page
+        // Swipe right - go to previous page
         setIsNavigating(true);
         router.push(PAGES[currentIndex - 1]);
       } else if (deltaX < 0 && currentIndex < PAGES.length - 1) {
-        // Swipe left from right edge - go to next page
+        // Swipe left - go to next page
         setIsNavigating(true);
         router.push(PAGES[currentIndex + 1]);
       }
@@ -79,7 +73,6 @@ export function SwipeNavigator({ children }: SwipeNavigatorProps) {
 
     touchStartX.current = null;
     touchStartY.current = null;
-    isEdgeSwipe.current = false;
   };
 
   return (

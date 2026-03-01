@@ -5,7 +5,8 @@ import { ScoreChart } from '@/components/analytics/ScoreChart';
 import { CategoryPieChart } from '@/components/analytics/CategoryPieChart';
 import { WeeklyTrends } from '@/components/analytics/WeeklyTrends';
 import { Sprint, Category, WeeklyGoal, DailyWrapup, CATEGORY_COLORS } from '@/lib/types';
-import { TrendingUp, Target, Clock, Zap, Edit2, Save, X, Plus } from 'lucide-react';
+import { TrendingUp, Target, Clock, Zap, Edit2, Save, X, Plus, Settings } from 'lucide-react';
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -428,26 +429,34 @@ export function StatsView({
         )}
       </div>
 
-      {/* Categories */}
-      <div className="neo-card p-6 space-y-4">
-        <h2 className="text-lg font-bold italic text-gold-400 pb-4 border-b border-border/50">
-          Your Categories
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {categories.map((category) => (
-            <div
-              key={category.id}
-              className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border/50"
-            >
-              <div
-                className="w-4 h-4 rounded-full shadow-md"
-                style={{ backgroundColor: CATEGORY_COLORS[category.color] }}
-              />
-              <span className="text-sm font-medium">{category.name}</span>
+      {/* Categories - Links to settings */}
+      <Link href="/account" className="block">
+        <div className="neo-card p-6 space-y-4 hover:ring-2 hover:ring-gold-400/30 transition-all cursor-pointer">
+          <div className="flex items-center justify-between pb-4 border-b border-border/50">
+            <h2 className="text-lg font-bold italic text-gold-400">
+              Your Categories
+            </h2>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <span className="text-sm">Edit</span>
+              <Settings className="h-4 w-4" />
             </div>
-          ))}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {categories.map((category) => (
+              <div
+                key={category.id}
+                className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border/50"
+              >
+                <div
+                  className="w-4 h-4 rounded-full shadow-md"
+                  style={{ backgroundColor: CATEGORY_COLORS[category.color] }}
+                />
+                <span className="text-sm font-medium">{category.name}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      </Link>
     </div>
   );
 }
