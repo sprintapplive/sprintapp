@@ -125,6 +125,29 @@ export const CATEGORY_COLORS: Record<string, string> = {
   'purple-500': '#a855f7',
 };
 
+// Score-based colors for time blocks
+export const SCORE_COLORS: Record<number, string> = {
+  1: '#f87171',  // red-400 (wasted)
+  2: '#f87171',  // red-400
+  3: '#b8d4b8',  // laurel-200 (lightest green)
+  4: '#8fb98f',  // laurel-300
+  5: '#6a9e6a',  // laurel-400
+  6: '#4a6741',  // laurel-500
+  7: '#3d5636',  // laurel-600
+  8: '#2d4a28',  // laurel-700
+  9: '#233a1f',  // laurel-800 (darkest green)
+  10: '#d4af37', // gold-400
+};
+
+// Get color based on score value
+export function getScoreColor(score: number, categoryName?: string): string {
+  // "Wasted" category always uses red regardless of score
+  if (categoryName?.toLowerCase() === 'wasted') {
+    return '#f87171';
+  }
+  return SCORE_COLORS[score] || '#4a6741';
+}
+
 // Helper to get 30-minute time blocks for a day
 export function getTimeBlocks(date: Date = new Date()): Date[] {
   const blocks: Date[] = [];

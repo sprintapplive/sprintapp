@@ -170,28 +170,7 @@ export function DashboardNav({ user }: DashboardNavProps) {
           </div>
         </div>
 
-        {/* Mobile navigation */}
-        <nav className="flex md:hidden items-center gap-1 pb-3 -mx-1 overflow-x-auto scrollbar-thin">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold italic transition-all whitespace-nowrap',
-                  isActive
-                    ? 'bg-laurel-700/50 text-gold-400 shadow-[0_0_15px_rgba(74,103,65,0.3)]'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+        {/* Mobile navigation - hidden, using swipe navigation instead */}
       </div>
     </header>
   );

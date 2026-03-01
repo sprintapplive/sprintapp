@@ -2,7 +2,7 @@
 
 import { useState, useRef, TouchEvent, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { Sprint, Category, CATEGORY_COLORS, formatTimeBlock, isCurrentBlock, isBlockInPast } from '@/lib/types';
+import { Sprint, Category, CATEGORY_COLORS, formatTimeBlock, isCurrentBlock, isBlockInPast, getScoreColor } from '@/lib/types';
 import { Brain, Briefcase, Dumbbell, Moon, Users, XCircle, Clock, ChevronLeft, ChevronRight, MessageSquare, Circle, Check } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -29,7 +29,6 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
   const [isEditing, setIsEditing] = useState(false);
   const [categoryIndex, setCategoryIndex] = useState(0);
   const [showNotes, setShowNotes] = useState(false);
-  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -144,9 +143,12 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
   const selectedColor = selectedCategory ? CATEGORY_COLORS[selectedCategory.color] : '#4a6741';
   const SelectedIcon = selectedCategory ? (iconMap[selectedCategory.icon] || Circle) : Circle;
 
-  const bgColor = hasData && category
-    ? CATEGORY_COLORS[category.color] || '#1f2e1d'
+  const bgColor = hasData && sprint
+    ? getScoreColor(sprint.score, category?.name)
     : undefined;
+
+  // Scores 3-4 have light backgrounds requiring dark text
+  const isLightBg = sprint && (sprint.score === 3 || sprint.score === 4);
 
   const Icon = category ? iconMap[category.icon] || Clock : Clock;
 
@@ -219,65 +221,41 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
           </button>
         </div>
 
-        {/* Mobile swipe hint / tap to expand */}
-        <button
-          className="sm:hidden w-full text-center py-1 bg-black/20"
-          onClick={() => setShowCategoryPicker(!showCategoryPicker)}
-        >
-          <span className="text-white/60 text-xs">
-            {showCategoryPicker ? 'Tap to collapse' : 'Swipe or tap to change'}
-          </span>
-        </button>
+        {/* Mobile swipe hint */}
+        <div className="sm:hidden w-full text-center py-1 bg-black/20">
+          <span className="text-white/60 text-xs">Swipe or tap to change</span>
+        </div>
 
-        {/* Category dots (mobile) - tap to expand picker */}
-        {!showCategoryPicker ? (
-          <div className="sm:hidden flex justify-center gap-1.5 py-2 bg-card">
-            {categories.map((cat, idx) => (
-              <button
-                key={idx}
-                onClick={() => setShowCategoryPicker(true)}
-                className={cn(
-                  'w-2 h-2 rounded-full transition-all',
-                  idx === categoryIndex ? 'bg-gold-400 w-4' : 'bg-muted-foreground/30'
-                )}
-              />
-            ))}
-          </div>
-        ) : (
-          /* Expanded category picker (mobile) */
-          <div className="sm:hidden bg-card border-t border-border/50 p-2">
-            <div className="grid grid-cols-3 gap-2">
-              {categories.map((cat, idx) => {
-                const CatIcon = iconMap[cat.icon] || Circle;
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => {
-                      setCategoryIndex(idx);
-                      setShowCategoryPicker(false);
-                    }}
-                    className={cn(
-                      'flex flex-col items-center gap-1 p-2 rounded-lg transition-all',
-                      idx === categoryIndex
-                        ? 'bg-gold-400/20 ring-2 ring-gold-400'
-                        : 'bg-muted/30 hover:bg-muted/50'
-                    )}
+        {/* Category picker grid (mobile) - always visible */}
+        <div className="sm:hidden bg-card border-t border-border/50 p-2">
+          <div className="grid grid-cols-3 gap-2">
+            {categories.map((cat, idx) => {
+              const CatIcon = iconMap[cat.icon] || Circle;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setCategoryIndex(idx)}
+                  className={cn(
+                    'flex flex-col items-center gap-1 p-2 rounded-lg transition-all',
+                    idx === categoryIndex
+                      ? 'bg-gold-400/20 ring-2 ring-gold-400'
+                      : 'bg-muted/30 hover:bg-muted/50'
+                  )}
+                >
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center"
+                    style={{ backgroundColor: CATEGORY_COLORS[cat.color] }}
                   >
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center"
-                      style={{ backgroundColor: CATEGORY_COLORS[cat.color] }}
-                    >
-                      <CatIcon className="h-4 w-4 text-white" />
-                    </div>
-                    <span className="text-xs font-medium truncate w-full text-center">
-                      {cat.name}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                    <CatIcon className="h-4 w-4 text-white" />
+                  </div>
+                  <span className="text-xs font-medium truncate w-full text-center">
+                    {cat.name}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-        )}
+        </div>
 
         {/* Desktop: Category dropdown alternative */}
         <div className="hidden sm:block px-3 py-2 bg-card border-t border-border/50">
@@ -398,7 +376,7 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
       <div className={cn(
         'flex-shrink-0 text-xs font-bold w-16 text-left',
         hasData
-          ? category?.color === 'marble-200'
+          ? isLightBg
             ? 'text-gray-700'
             : 'text-white/90'
           : 'text-muted-foreground'
@@ -410,7 +388,7 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
       {hasData ? (
         <div className={cn(
           'flex-1 flex items-center gap-3',
-          category?.color === 'marble-200' ? 'text-gray-700' : 'text-white'
+          isLightBg ? 'text-gray-700' : 'text-white'
         )}>
           <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
             <Icon className="h-4 w-4" />
@@ -422,7 +400,7 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
             {sprint.description && (
               <div className={cn(
                 'text-xs truncate',
-                category?.color === 'marble-200' ? 'text-gray-600' : 'text-white/70'
+                isLightBg ? 'text-gray-600' : 'text-white/70'
               )}>
                 {sprint.description}
               </div>
@@ -432,7 +410,7 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
             'flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center',
             'bg-white/20 backdrop-blur-sm',
             'text-xl font-black italic',
-            category?.color === 'marble-200' ? 'text-gray-700' : 'text-white'
+            isLightBg ? 'text-gray-700' : 'text-white'
           )}>
             {sprint.score}
           </div>
