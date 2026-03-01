@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { WeeklyStats, Phalanx } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -9,8 +9,107 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Trophy, Users, Shield, TrendingUp, TrendingDown, Minus,
-  Crown, Sword, ChevronDown, ChevronUp, Plus, LogIn, Copy, Check
+  Crown, Sword, ChevronDown, ChevronUp, Plus, LogIn, Copy, Check,
+  Clock
 } from 'lucide-react';
+
+// Greek columns SVG component - slowly rotating
+function GreekColumns() {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <svg
+        viewBox="0 0 800 800"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] opacity-[0.03] dark:opacity-[0.05] animate-spin-slow"
+      >
+        {/* Circular arrangement of columns */}
+        {Array.from({ length: 12 }).map((_, i) => {
+          const angle = (i * 30) * Math.PI / 180;
+          const x = 400 + Math.cos(angle) * 300;
+          const y = 400 + Math.sin(angle) * 300;
+          return (
+            <g key={i} transform={`translate(${x}, ${y}) rotate(${i * 30 + 90})`}>
+              {/* Column */}
+              <rect x="-12" y="-80" width="24" height="160" fill="currentColor" rx="2" />
+              {/* Capital (top) */}
+              <rect x="-18" y="-90" width="36" height="10" fill="currentColor" rx="1" />
+              <rect x="-22" y="-100" width="44" height="10" fill="currentColor" rx="1" />
+              {/* Base */}
+              <rect x="-18" y="80" width="36" height="10" fill="currentColor" rx="1" />
+              <rect x="-22" y="90" width="44" height="10" fill="currentColor" rx="1" />
+              {/* Column fluting (vertical lines) */}
+              <line x1="-6" y1="-75" x2="-6" y2="75" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+              <line x1="0" y1="-75" x2="0" y2="75" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+              <line x1="6" y1="-75" x2="6" y2="75" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+            </g>
+          );
+        })}
+        {/* Center laurel wreath */}
+        <circle cx="400" cy="400" r="80" fill="none" stroke="currentColor" strokeWidth="4" />
+        <circle cx="400" cy="400" r="60" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.5" />
+      </svg>
+    </div>
+  );
+}
+
+// Countdown timer to next Friday 5 PM MT
+function useCountdown() {
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    const getNextFriday5PM = () => {
+      const now = new Date();
+      // Convert to Mountain Time (UTC-7 or UTC-6 depending on DST)
+      const mtOffset = -7; // Mountain Standard Time
+      const utcHours = now.getUTCHours();
+      const mtHours = utcHours + mtOffset;
+
+      const target = new Date(now);
+      const dayOfWeek = target.getDay();
+
+      // Calculate days until Friday (5)
+      let daysUntilFriday = (5 - dayOfWeek + 7) % 7;
+
+      // If it's Friday, check if we're past 5 PM MT
+      if (daysUntilFriday === 0) {
+        const currentMTHour = (now.getUTCHours() + mtOffset + 24) % 24;
+        if (currentMTHour >= 17) {
+          daysUntilFriday = 7; // Next Friday
+        }
+      }
+
+      target.setDate(target.getDate() + daysUntilFriday);
+      // Set to 5 PM MT (17:00 MT = 00:00 UTC next day in winter, 23:00 UTC same day in summer)
+      target.setUTCHours(17 - mtOffset, 0, 0, 0);
+
+      return target;
+    };
+
+    const updateCountdown = () => {
+      const now = new Date();
+      const target = getNextFriday5PM();
+      const diff = target.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        return;
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      setTimeLeft({ days, hours, minutes, seconds });
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return timeLeft;
+}
 
 interface AgoraViewProps {
   weeklyStats: WeeklyStats[];
@@ -71,6 +170,7 @@ export function AgoraView({
   const [error, setError] = useState<string | null>(null);
 
   const supabase = createClient();
+  const countdown = useCountdown();
 
   const formatWeekRange = () => {
     const weekEnd = new Date(weekStart);
@@ -177,14 +277,36 @@ export function AgoraView({
   const myPhalanxes = phalanxes.filter(p => userPhalanxIds.includes(p.id));
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black italic text-foreground">The Agora</h1>
-          <p className="text-sm text-muted-foreground">Weekly rankings published every Friday at 5 PM</p>
+    <div className="relative space-y-6">
+      {/* Rotating Greek columns background */}
+      <GreekColumns />
+
+      {/* Header with countdown */}
+      <div className="relative neo-card p-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-black italic text-foreground tracking-tight">The Agora</h1>
+            <p className="text-sm text-muted-foreground mt-1">{formatWeekRange()}</p>
+          </div>
+
+          {/* Countdown timer */}
+          <div className="flex items-center gap-3 bg-card/50 rounded-xl px-4 py-3 border border-border/50">
+            <Clock className="h-5 w-5 text-gold-400" />
+            <div className="flex items-center gap-1 text-sm">
+              <span className="text-muted-foreground">Rankings in</span>
+              <div className="flex items-center gap-1 font-mono font-bold text-foreground">
+                {countdown.days > 0 && (
+                  <>
+                    <span className="bg-laurel-900/50 px-2 py-1 rounded">{countdown.days}d</span>
+                  </>
+                )}
+                <span className="bg-laurel-900/50 px-2 py-1 rounded">{String(countdown.hours).padStart(2, '0')}h</span>
+                <span className="bg-laurel-900/50 px-2 py-1 rounded">{String(countdown.minutes).padStart(2, '0')}m</span>
+                <span className="bg-laurel-900/50 px-2 py-1 rounded text-gold-400">{String(countdown.seconds).padStart(2, '0')}s</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <span className="text-muted-foreground italic">{formatWeekRange()}</span>
       </div>
 
       {/* Individual Leaderboard */}

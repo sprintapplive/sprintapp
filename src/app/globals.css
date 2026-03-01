@@ -348,3 +348,17 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: 0 2px 8px rgba(212, 175, 55, 0.4);
   border: none;
 }
+
+/* Slow spin animation for Agora background */
+@keyframes spin-slow {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 120s linear infinite;
+}
