@@ -487,22 +487,24 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
       {/* Content */}
       {hasData ? (
         <div className={cn(
-          'flex-1 flex items-center gap-3',
+          'flex-1 flex items-center gap-3 min-w-0 overflow-hidden',
           isLightBg ? 'text-gray-700' : 'text-white'
         )}>
-          <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
+          <div className="w-8 h-8 flex-shrink-0 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
             <Icon className="h-4 w-4" />
           </div>
-          <div className="flex-1 min-w-0 text-left">
+          <div className="flex-1 min-w-0 overflow-hidden text-left">
             <div className="text-sm font-bold truncate">
               {category?.name || 'Unknown'}
             </div>
             {sprint.description && (
               <div className={cn(
-                'text-xs truncate',
+                'text-xs truncate max-w-[150px]',
                 isLightBg ? 'text-gray-600' : 'text-white/70'
               )}>
-                {sprint.description}
+                {sprint.description.length > 25
+                  ? sprint.description.slice(0, 25) + '...'
+                  : sprint.description}
               </div>
             )}
           </div>
