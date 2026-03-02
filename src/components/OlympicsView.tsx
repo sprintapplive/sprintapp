@@ -131,21 +131,13 @@ export function OlympicsView({ userId, initialRings, status, displayName }: Olym
             >
               <span className="text-6xl">🏟️</span>
             </motion.div>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="absolute -top-2 -right-2 w-12 h-12 rounded-full bg-gold-400 flex items-center justify-center text-olympus-900 font-bold text-sm"
-            >
-              55m
-            </motion.div>
           </div>
 
           <h1 className="text-3xl font-black italic text-gold-400 mb-2">
             Olympics Mode
           </h1>
           <p className="text-muted-foreground mb-8">
-            Enter the arena for a 55-minute structured work session.
+            Enter the arena for a structured work session.
             Define your laps, race against time, and earn glory.
           </p>
 
@@ -183,7 +175,7 @@ export function OlympicsView({ userId, initialRings, status, displayName }: Olym
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-gold-400 font-bold">2.</span>
-                Define 2-8 laps totaling exactly 55 minutes
+                Define 2-8 laps with your target times
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-gold-400 font-bold">3.</span>

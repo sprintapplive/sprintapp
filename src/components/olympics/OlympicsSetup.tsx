@@ -9,10 +9,11 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import type { OlympicsLap } from '@/lib/types';
 
-const TOTAL_SESSION_MINUTES = 55;
 const BUY_IN_COST = 5;
 const MIN_LAPS = 2;
 const MAX_LAPS = 8;
+const MIN_SESSION_MINUTES = 10;
+const MAX_SESSION_MINUTES = 120;
 
 interface OlympicsSetupProps {
   goldenRings: number;
@@ -29,7 +30,7 @@ export function OlympicsSetup({ goldenRings, onStartSession, onCancel }: Olympic
 
   const canAfford = goldenRings >= BUY_IN_COST;
   const totalMinutes = laps.reduce((sum, lap) => sum + (parseInt(lap.minutes) || 0), 0);
-  const isValidTotal = totalMinutes === TOTAL_SESSION_MINUTES;
+  const isValidTotal = totalMinutes >= MIN_SESSION_MINUTES && totalMinutes <= MAX_SESSION_MINUTES;
   const allLapsHaveTitles = laps.every(lap => lap.title.trim().length > 0);
   const allLapsHaveMinutes = laps.every(lap => parseInt(lap.minutes) > 0);
   const canStart = canAfford && isValidTotal && allLapsHaveTitles && allLapsHaveMinutes;
@@ -71,30 +72,27 @@ export function OlympicsSetup({ goldenRings, onStartSession, onCancel }: Olympic
   // Quick presets
   const presets = [
     {
-      name: 'Even Split (5 laps)',
+      name: 'Quick (25m)',
       laps: [
-        { title: 'Lap 1', minutes: '11' },
-        { title: 'Lap 2', minutes: '11' },
-        { title: 'Lap 3', minutes: '11' },
-        { title: 'Lap 4', minutes: '11' },
-        { title: 'Lap 5', minutes: '11' },
-      ],
-    },
-    {
-      name: 'Build Up (4 laps)',
-      laps: [
-        { title: 'Warm Up', minutes: '10' },
         { title: 'Focus', minutes: '15' },
-        { title: 'Deep Work', minutes: '20' },
         { title: 'Sprint', minutes: '10' },
       ],
     },
     {
-      name: 'Pomodoro Style (3 laps)',
+      name: 'Standard (45m)',
       laps: [
-        { title: 'First Push', minutes: '20' },
-        { title: 'Second Push', minutes: '20' },
-        { title: 'Final Sprint', minutes: '15' },
+        { title: 'Warm Up', minutes: '10' },
+        { title: 'Deep Work', minutes: '25' },
+        { title: 'Final Push', minutes: '10' },
+      ],
+    },
+    {
+      name: 'Marathon (90m)',
+      laps: [
+        { title: 'Phase 1', minutes: '25' },
+        { title: 'Phase 2', minutes: '25' },
+        { title: 'Phase 3', minutes: '25' },
+        { title: 'Sprint', minutes: '15' },
       ],
     },
   ];
@@ -189,7 +187,7 @@ export function OlympicsSetup({ goldenRings, onStartSession, onCancel }: Olympic
             'text-sm font-mono px-2 py-0.5 rounded',
             isValidTotal ? 'bg-gold-400/20 text-gold-400' : 'bg-red-400/20 text-red-400'
           )}>
-            {totalMinutes}/{TOTAL_SESSION_MINUTES}m
+            {totalMinutes}m total
           </div>
         </div>
 
@@ -258,19 +256,19 @@ export function OlympicsSetup({ goldenRings, onStartSession, onCancel }: Olympic
             exit={{ opacity: 0, height: 0 }}
             className={cn(
               'mb-6 p-3 rounded-lg text-sm flex items-center gap-2',
-              totalMinutes < TOTAL_SESSION_MINUTES
+              totalMinutes < MIN_SESSION_MINUTES
                 ? 'bg-amber-400/10 text-amber-400'
                 : 'bg-red-400/10 text-red-400'
             )}
           >
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            {totalMinutes < TOTAL_SESSION_MINUTES ? (
+            {totalMinutes < MIN_SESSION_MINUTES ? (
               <span>
-                Add {TOTAL_SESSION_MINUTES - totalMinutes} more minutes to reach {TOTAL_SESSION_MINUTES}m.
+                Minimum session length is {MIN_SESSION_MINUTES} minutes.
               </span>
             ) : (
               <span>
-                Remove {totalMinutes - TOTAL_SESSION_MINUTES} minutes. Total must equal {TOTAL_SESSION_MINUTES}m.
+                Maximum session length is {MAX_SESSION_MINUTES} minutes.
               </span>
             )}
           </motion.div>

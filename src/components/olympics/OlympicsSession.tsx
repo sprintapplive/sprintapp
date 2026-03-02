@@ -8,7 +8,7 @@ import { OlympicsTrack } from './OlympicsTrack';
 import { cn } from '@/lib/utils';
 import type { OlympicsLap } from '@/lib/types';
 
-const TOTAL_SESSION_SECONDS = 55 * 60; // 55 minutes
+// Total session time is calculated from laps
 
 interface OlympicsSessionProps {
   laps: OlympicsLap[];
@@ -23,8 +23,11 @@ export function OlympicsSession({ laps, onWin, onLose, onExit }: OlympicsSession
   const [phase, setPhase] = useState<SessionPhase>('countdown');
   const [countdownValue, setCountdownValue] = useState(3);
 
+  // Calculate total session time from laps
+  const totalSessionSeconds = laps.reduce((sum, lap) => sum + lap.allocatedMinutes * 60, 0);
+
   // Timer state
-  const [masterTimeRemaining, setMasterTimeRemaining] = useState(TOTAL_SESSION_SECONDS);
+  const [masterTimeRemaining, setMasterTimeRemaining] = useState(totalSessionSeconds);
   const [currentLapIndex, setCurrentLapIndex] = useState(0);
   const [lapTimeElapsed, setLapTimeElapsed] = useState(0);
   const [bankedTime, setBankedTime] = useState(0);
@@ -48,7 +51,7 @@ export function OlympicsSession({ laps, onWin, onLose, onExit }: OlympicsSession
 
   // Calculate total progress through all laps
   const totalAllocatedSeconds = sessionLaps.reduce((sum, lap) => sum + lap.allocatedMinutes * 60, 0);
-  const elapsedSeconds = TOTAL_SESSION_SECONDS - masterTimeRemaining;
+  const elapsedSeconds = totalSessionSeconds - masterTimeRemaining;
   const totalProgress = totalAllocatedSeconds > 0
     ? elapsedSeconds / totalAllocatedSeconds
     : 0;
