@@ -8,11 +8,12 @@ import { DailyView } from '@/components/DailyView';
 import { StatsView } from '@/components/StatsView';
 import { AgoraView } from '@/components/AgoraView';
 import { AccountView } from '@/components/AccountView';
+import { OlympicsView } from '@/components/OlympicsView';
 import { SprintMode } from '@/components/SprintMode';
 import { Category, Sprint, DailyWrapup, WeeklyGoal, WeeklyStats, Profile } from '@/lib/types';
 
-const PAGES = ['/agora', '/', '/stats', '/account'] as const;
-const PAGE_LABELS = ['Agora', 'Today', 'Stats', 'Account'] as const;
+const PAGES = ['/olympics', '/agora', '/', '/stats', '/account'] as const;
+const PAGE_LABELS = ['Olympics', 'Agora', 'Today', 'Stats', 'Account'] as const;
 
 interface SprintWithCategory extends Sprint {
   categories?: {
@@ -77,7 +78,7 @@ export function SwipePages({
 
   const getPageIndex = (path: string) => {
     const idx = PAGES.indexOf(path as typeof PAGES[number]);
-    return idx >= 0 ? idx : 1;
+    return idx >= 0 ? idx : 2; // Default to Today (index 2)
   };
 
   const [currentIndex, setCurrentIndex] = useState(() => getPageIndex(pathname));
@@ -153,6 +154,15 @@ export function SwipePages({
     switch (index) {
       case 0:
         return (
+          <OlympicsView
+            userId={userId}
+            initialRings={profile?.golden_rings ?? 20}
+            status={(profile?.status as 'Olympian' | 'Spartan' | 'Helot') ?? 'Spartan'}
+            displayName={userDisplayName}
+          />
+        );
+      case 1:
+        return (
           <AgoraView
             weeklyStats={weeklyStats}
             prevWeekStats={prevWeekStats}
@@ -162,7 +172,7 @@ export function SwipePages({
             sprints={allSprints}
           />
         );
-      case 1:
+      case 2:
         return (
           <DailyView
             initialSprints={todaySprints}
@@ -172,7 +182,7 @@ export function SwipePages({
             userId={userId}
           />
         );
-      case 2:
+      case 3:
         return (
           <StatsView
             sprints={weekSprints}
@@ -184,7 +194,7 @@ export function SwipePages({
             userId={userId}
           />
         );
-      case 3:
+      case 4:
         return (
           <AccountView
             user={user}
@@ -204,7 +214,7 @@ export function SwipePages({
         <main className="flex-1 container mx-auto px-4 py-6 max-w-4xl">
           {renderPage(currentIndex)}
         </main>
-        {currentIndex === 1 && <SprintMode />}
+        {currentIndex === 2 && <SprintMode />}
       </>
     );
   }

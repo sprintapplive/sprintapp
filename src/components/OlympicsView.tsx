@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Coins, Trophy } from 'lucide-react';
+import { Coins, Trophy } from 'lucide-react';
 import { OlympicsSetup } from './olympics/OlympicsSetup';
 import { OlympicsSession } from './olympics/OlympicsSession';
 import { Button } from '@/components/ui/button';
@@ -115,15 +115,7 @@ export function OlympicsView({ userId, initialRings, status, displayName }: Olym
   // Intro view
   if (viewState === 'intro') {
     return (
-      <div className="min-h-[calc(100vh-8rem)] flex flex-col items-center justify-center p-6">
-        {/* Back button */}
-        <div className="absolute top-20 left-4 md:top-4">
-          <Button variant="ghost" size="sm" onClick={() => router.push('/')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-        </div>
-
+      <div className="flex flex-col items-center justify-center py-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -206,6 +198,13 @@ export function OlympicsView({ userId, initialRings, status, displayName }: Olym
                 Run out of time = lose your wager
               </li>
             </ul>
+            <div className="mt-4 pt-3 border-t border-border/30">
+              <p className="text-xs text-muted-foreground">
+                <span className="text-gold-400">+3</span> rings for every perfect 10 score
+                {' • '}
+                <span className="text-red-400">-3</span> rings for every wasted hour
+              </p>
+            </div>
           </div>
 
           {/* CTA */}
@@ -242,7 +241,7 @@ export function OlympicsView({ userId, initialRings, status, displayName }: Olym
   // Setup view
   if (viewState === 'setup') {
     return (
-      <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center p-6">
+      <div className="flex items-center justify-center py-8">
         <OlympicsSetup
           goldenRings={goldenRings}
           onStartSession={handleStartSession}

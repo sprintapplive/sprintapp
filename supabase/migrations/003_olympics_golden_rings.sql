@@ -46,6 +46,54 @@ CREATE TRIGGER on_perfect_sprint_score
   FOR EACH ROW EXECUTE FUNCTION award_rings_for_perfect_score();
 
 -- ============================================================================
+-- WASTED TIME PENALTY TRIGGER
+-- Deduct 3 rings for every hour of wasted time (every 2 wasted sprints)
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION penalize_wasted_time()
+RETURNS TRIGGER AS $$
+DECLARE
+  wasted_category_id UUID;
+  wasted_count INTEGER;
+BEGIN
+  -- Get the Wasted category ID for this user
+  SELECT id INTO wasted_category_id
+  FROM categories
+  WHERE user_id = NEW.user_id AND LOWER(name) = 'wasted'
+  LIMIT 1;
+
+  -- Only proceed if this sprint is categorized as Wasted
+  IF NEW.category_id IS NOT NULL AND NEW.category_id = wasted_category_id THEN
+    -- Count total wasted sprints for this user this week
+    SELECT COUNT(*) INTO wasted_count
+    FROM sprints s
+    JOIN categories c ON s.category_id = c.id
+    WHERE s.user_id = NEW.user_id
+      AND LOWER(c.name) = 'wasted'
+      AND s.block_start >= date_trunc('week', CURRENT_DATE);
+
+    -- Every 2 wasted sprints = 1 hour = -3 rings
+    -- Check if this new sprint completes an hour (even count means we just completed a pair)
+    IF wasted_count > 0 AND wasted_count % 2 = 0 THEN
+      UPDATE profiles
+      SET golden_rings = GREATEST(0, golden_rings - 3)
+      WHERE id = NEW.user_id;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Drop existing trigger if it exists
+DROP TRIGGER IF EXISTS on_wasted_sprint ON sprints;
+
+-- Create trigger for INSERT (only on new sprints, not updates)
+CREATE TRIGGER on_wasted_sprint
+  AFTER INSERT ON sprints
+  FOR EACH ROW EXECUTE FUNCTION penalize_wasted_time();
+
+-- ============================================================================
 -- HELPER FUNCTIONS FOR GOLDEN RINGS
 -- ============================================================================
 

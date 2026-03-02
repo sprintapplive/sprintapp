@@ -17,9 +17,9 @@ interface DashboardNavProps {
 }
 
 const navItems = [
+  { href: '/olympics', label: 'Olympics', icon: Trophy, special: true },
   { href: '/agora', label: 'Agora', icon: Users },
   { href: '/', label: 'Today', icon: Calendar },
-  { href: '/olympics', label: 'Olympics', icon: Trophy, special: true },
   { href: '/stats', label: 'Stats', icon: BarChart3 },
   { href: '/account', label: 'Account', icon: Settings },
 ];
@@ -124,34 +124,37 @@ export function DashboardNav({ user, goldenRings }: DashboardNavProps) {
             })}
           </nav>
 
-          {/* Golden Rings Balance */}
-          {goldenRings !== undefined && (
-            <Link
-              href="/olympics"
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all',
-                'bg-gold-400/10 hover:bg-gold-400/20',
-                'text-gold-400 font-bold text-sm'
-              )}
-              title="Golden Rings - Enter Olympics Mode"
-            >
-              <Coins className="h-4 w-4" />
-              <span>{goldenRings}</span>
-            </Link>
-          )}
-
-          {/* Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            className={cn(
-              'relative p-2 rounded-xl transition-all',
-              'hover:bg-card/50 text-muted-foreground hover:text-foreground'
+          {/* Right side controls */}
+          <div className="flex items-center gap-2">
+            {/* Golden Rings Balance - links to Olympics */}
+            {goldenRings !== undefined && (
+              <Link
+                href="/olympics"
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all',
+                  'bg-gold-400/10 hover:bg-gold-400/20',
+                  'text-gold-400 font-bold text-sm'
+                )}
+                title="Golden Rings - Enter Olympics Mode"
+              >
+                <Coins className="h-4 w-4" />
+                <span>{goldenRings}</span>
+              </Link>
             )}
-            aria-label="Toggle theme"
-          >
-            <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute top-2 left-2 h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-          </button>
+
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className={cn(
+                'relative p-2 rounded-xl transition-all',
+                'hover:bg-card/50 text-muted-foreground hover:text-foreground'
+              )}
+              aria-label="Toggle theme"
+            >
+              <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute top-2 left-2 h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            </button>
+          </div>
         </div>
       </div>
     </header>
