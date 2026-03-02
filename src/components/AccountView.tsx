@@ -10,7 +10,7 @@ import { Profile, Category, CATEGORY_COLORS } from '@/lib/types';
 import {
   User as UserIcon, Mail, Save, Bell, Palette, Plus, Pencil, Check, X,
   Brain, Briefcase, Dumbbell, Moon, Users, XCircle, Sparkles, BookOpen, Coffee, Heart,
-  ChevronUp, ChevronDown, GripVertical
+  ChevronUp, ChevronDown, GripVertical, Globe, Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -51,6 +51,28 @@ const AVAILABLE_ICONS = [
   { name: 'heart', label: 'Personal' },
 ];
 
+// Common timezones with friendly names
+const TIMEZONES = [
+  { value: 'America/New_York', label: 'Eastern Time (ET)', offset: 'UTC-5/UTC-4' },
+  { value: 'America/Chicago', label: 'Central Time (CT)', offset: 'UTC-6/UTC-5' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)', offset: 'UTC-7/UTC-6' },
+  { value: 'America/Phoenix', label: 'Arizona (No DST)', offset: 'UTC-7' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)', offset: 'UTC-8/UTC-7' },
+  { value: 'America/Anchorage', label: 'Alaska Time', offset: 'UTC-9/UTC-8' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii Time', offset: 'UTC-10' },
+  { value: 'America/Toronto', label: 'Toronto', offset: 'UTC-5/UTC-4' },
+  { value: 'America/Vancouver', label: 'Vancouver', offset: 'UTC-8/UTC-7' },
+  { value: 'Europe/London', label: 'London (GMT/BST)', offset: 'UTC+0/UTC+1' },
+  { value: 'Europe/Paris', label: 'Paris/Berlin (CET)', offset: 'UTC+1/UTC+2' },
+  { value: 'Europe/Moscow', label: 'Moscow', offset: 'UTC+3' },
+  { value: 'Asia/Dubai', label: 'Dubai', offset: 'UTC+4' },
+  { value: 'Asia/Kolkata', label: 'India (IST)', offset: 'UTC+5:30' },
+  { value: 'Asia/Singapore', label: 'Singapore', offset: 'UTC+8' },
+  { value: 'Asia/Tokyo', label: 'Tokyo (JST)', offset: 'UTC+9' },
+  { value: 'Australia/Sydney', label: 'Sydney (AEST)', offset: 'UTC+10/UTC+11' },
+  { value: 'Pacific/Auckland', label: 'Auckland (NZST)', offset: 'UTC+12/UTC+13' },
+];
+
 interface AccountViewProps {
   user: User;
   profile: Profile | null;
@@ -59,12 +81,22 @@ interface AccountViewProps {
 
 export function AccountView({ user, profile, categories: initialCategories }: AccountViewProps) {
   const [displayName, setDisplayName] = useState(profile?.display_name || '');
+  const [timezone, setTimezone] = useState(profile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const [timezoneSearch, setTimezoneSearch] = useState('');
+  const [showTimezoneDropdown, setShowTimezoneDropdown] = useState(false);
   const [dailyEmails, setDailyEmails] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   // Category state
   const [categories, setCategories] = useState(initialCategories);
+
+  // Filter timezones based on search
+  const filteredTimezones = TIMEZONES.filter(tz =>
+    tz.label.toLowerCase().includes(timezoneSearch.toLowerCase()) ||
+    tz.value.toLowerCase().includes(timezoneSearch.toLowerCase()) ||
+    tz.offset.toLowerCase().includes(timezoneSearch.toLowerCase())
+  );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('');
@@ -84,6 +116,7 @@ export function AccountView({ user, profile, categories: initialCategories }: Ac
       .from('profiles')
       .update({
         display_name: displayName || null,
+        timezone: timezone,
       })
       .eq('id', user.id);
 
@@ -93,6 +126,11 @@ export function AccountView({ user, profile, categories: initialCategories }: Ac
     }
 
     setSaving(false);
+  };
+
+  const getTimezoneLabel = (value: string) => {
+    const tz = TIMEZONES.find(t => t.value === value);
+    return tz ? tz.label : value;
   };
 
   const startEditing = (category: Category) => {
@@ -219,6 +257,88 @@ export function AccountView({ user, profile, categories: initialCategories }: Ac
                 'focus:border-laurel-500 focus:ring-laurel-500/20'
               )}
             />
+          </div>
+
+          {/* Timezone selector */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              Timezone
+            </Label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowTimezoneDropdown(!showTimezoneDropdown)}
+                className={cn(
+                  'w-full flex items-center justify-between px-4 py-3 rounded-xl text-left',
+                  'bg-card border border-border/50',
+                  'shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2),inset_-2px_-2px_4px_rgba(255,255,255,0.02)]',
+                  'hover:border-laurel-500/50 transition-colors'
+                )}
+              >
+                <span>{getTimezoneLabel(timezone)}</span>
+                <ChevronDown className={cn(
+                  'h-4 w-4 text-muted-foreground transition-transform',
+                  showTimezoneDropdown && 'rotate-180'
+                )} />
+              </button>
+
+              {showTimezoneDropdown && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowTimezoneDropdown(false)}
+                  />
+                  <div className="absolute z-50 top-full mt-2 w-full bg-card border border-border/50 rounded-xl shadow-xl overflow-hidden">
+                    {/* Search input */}
+                    <div className="p-2 border-b border-border/50">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          type="text"
+                          placeholder="Search timezones..."
+                          value={timezoneSearch}
+                          onChange={(e) => setTimezoneSearch(e.target.value)}
+                          className="pl-9 bg-background"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    {/* Timezone list */}
+                    <div className="max-h-64 overflow-y-auto">
+                      {filteredTimezones.map((tz) => (
+                        <button
+                          key={tz.value}
+                          type="button"
+                          onClick={() => {
+                            setTimezone(tz.value);
+                            setShowTimezoneDropdown(false);
+                            setTimezoneSearch('');
+                          }}
+                          className={cn(
+                            'w-full flex items-center justify-between px-4 py-3 text-left transition-colors',
+                            'hover:bg-laurel-900/30',
+                            timezone === tz.value && 'bg-laurel-900/50'
+                          )}
+                        >
+                          <span className="font-medium">{tz.label}</span>
+                          <span className="text-xs text-muted-foreground">{tz.offset}</span>
+                        </button>
+                      ))}
+                      {filteredTimezones.length === 0 && (
+                        <div className="px-4 py-6 text-center text-muted-foreground">
+                          No timezones found
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Used for date calculations and statistics
+            </p>
           </div>
         </div>
       </div>

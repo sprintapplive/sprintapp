@@ -194,3 +194,74 @@ export function isCurrentBlock(blockStart: Date): boolean {
   const currentBlock = getCurrentTimeBlock();
   return blockStart.getTime() === currentBlock.getTime();
 }
+
+// Timezone-aware date utilities
+
+// Get the current date in a specific timezone as YYYY-MM-DD
+export function getTodayInTimezone(timezone: string): string {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(now);
+}
+
+// Get start and end of day in timezone (returns UTC Date objects)
+export function getDayBoundsInTimezone(dateStr: string, timezone: string): { start: Date; end: Date } {
+  // Parse the date string
+  const [year, month, day] = dateStr.split('-').map(Number);
+
+  // Create a date at midnight in the target timezone
+  // We need to calculate the UTC time that corresponds to midnight in the timezone
+  const tempDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0)); // noon UTC as reference
+
+  // Get timezone offset at this date
+  const tzFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: 'numeric',
+    hour12: false,
+  });
+
+  // Calculate offset by comparing local time to UTC
+  const parts = tzFormatter.formatToParts(tempDate);
+  const hourInTz = parseInt(parts.find(p => p.type === 'hour')?.value || '12');
+  const offsetHours = 12 - hourInTz;
+
+  // Start of day in timezone (converted to UTC)
+  const start = new Date(Date.UTC(year, month - 1, day, offsetHours, 0, 0, 0));
+  // End of day in timezone (converted to UTC)
+  const end = new Date(Date.UTC(year, month - 1, day, offsetHours + 23, 59, 59, 999));
+
+  return { start, end };
+}
+
+// Get the week start (Monday) for a date in a specific timezone
+export function getWeekStartInTimezone(dateStr: string, timezone: string): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  const dayOfWeek = date.getDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  date.setDate(date.getDate() + mondayOffset);
+
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(date);
+}
+
+// Convert a Date to local date string in timezone
+export function formatDateInTimezone(date: Date, timezone: string): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(date);
+}

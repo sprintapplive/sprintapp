@@ -1,16 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { WeeklyStats, Phalanx } from '@/lib/types';
+import { useState, useEffect, useMemo } from 'react';
+import { WeeklyStats, Sprint } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
-  Trophy, Users, Shield, TrendingUp, TrendingDown, Minus,
-  Crown, Sword, ChevronDown, ChevronUp, Plus, LogIn, Copy, Check,
-  Clock
+  Trophy, TrendingUp, TrendingDown, Minus,
+  Crown, Sword, Shield, ChevronDown, ChevronUp,
+  Clock, Award, Flame, Zap, Star, Target
 } from 'lucide-react';
 
 // Greek columns SVG component - slowly rotating
@@ -109,15 +105,167 @@ function useCountdown() {
   return timeLeft;
 }
 
+// Badge definitions
+const BADGES = [
+  {
+    id: 'spartans_discipline',
+    name: "Spartan's Discipline",
+    description: 'Get 3 perfect scores (10) in one day',
+    icon: Sword,
+    color: 'from-red-600 to-red-800',
+    borderColor: 'border-red-500/50',
+    textColor: 'text-red-400',
+    requirement: (sprints: SprintWithCategory[]) => {
+      // Group by date and count 10s per day
+      const sprintsByDate: Record<string, number> = {};
+      sprints.forEach(sprint => {
+        if (sprint.score === 10) {
+          const date = sprint.block_start.split('T')[0];
+          sprintsByDate[date] = (sprintsByDate[date] || 0) + 1;
+        }
+      });
+      // Count days with 3+ perfect scores
+      return Object.values(sprintsByDate).filter(count => count >= 3).length;
+    },
+  },
+  {
+    id: 'marathon_runner',
+    name: 'Marathon Runner',
+    description: 'Log sprints for 7 consecutive days',
+    icon: Flame,
+    color: 'from-orange-500 to-amber-600',
+    borderColor: 'border-orange-500/50',
+    textColor: 'text-orange-400',
+    requirement: (sprints: SprintWithCategory[]) => {
+      // Get all unique dates with sprints
+      const dates = [...new Set(sprints.map(s => s.block_start.split('T')[0]))].sort();
+      if (dates.length < 7) return 0;
+
+      let streaks = 0;
+      let currentStreak = 1;
+
+      for (let i = 1; i < dates.length; i++) {
+        const prevDate = new Date(dates[i - 1]);
+        const currDate = new Date(dates[i]);
+        const diffDays = (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24);
+
+        if (diffDays === 1) {
+          currentStreak++;
+          if (currentStreak === 7) {
+            streaks++;
+            currentStreak = 0; // Reset to count next streak
+          }
+        } else {
+          currentStreak = 1;
+        }
+      }
+      return streaks;
+    },
+  },
+  {
+    id: 'hercules_labor',
+    name: "Hercules' Labor",
+    description: 'Log 30+ sprints in a single day',
+    icon: Zap,
+    color: 'from-purple-600 to-violet-700',
+    borderColor: 'border-purple-500/50',
+    textColor: 'text-purple-400',
+    requirement: (sprints: SprintWithCategory[]) => {
+      // Group by date and count
+      const sprintsByDate: Record<string, number> = {};
+      sprints.forEach(sprint => {
+        const date = sprint.block_start.split('T')[0];
+        sprintsByDate[date] = (sprintsByDate[date] || 0) + 1;
+      });
+      // Count days with 30+ sprints
+      return Object.values(sprintsByDate).filter(count => count >= 30).length;
+    },
+  },
+  {
+    id: 'athenas_wisdom',
+    name: "Athena's Wisdom",
+    description: 'Maintain weekly average above 8',
+    icon: Star,
+    color: 'from-blue-500 to-cyan-600',
+    borderColor: 'border-blue-500/50',
+    textColor: 'text-blue-400',
+    requirement: (sprints: SprintWithCategory[]) => {
+      // Group sprints by week (Monday-Sunday)
+      const sprintsByWeek: Record<string, { total: number; count: number }> = {};
+
+      sprints.forEach(sprint => {
+        const date = new Date(sprint.block_start);
+        const dayOfWeek = date.getDay();
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const weekStart = new Date(date);
+        weekStart.setDate(date.getDate() + mondayOffset);
+        const weekKey = weekStart.toISOString().split('T')[0];
+
+        if (!sprintsByWeek[weekKey]) {
+          sprintsByWeek[weekKey] = { total: 0, count: 0 };
+        }
+        sprintsByWeek[weekKey].total += sprint.score;
+        sprintsByWeek[weekKey].count++;
+      });
+
+      // Count weeks with average > 8 (minimum 10 sprints to qualify)
+      return Object.values(sprintsByWeek).filter(
+        week => week.count >= 10 && week.total / week.count > 8
+      ).length;
+    },
+  },
+  {
+    id: 'apollos_focus',
+    name: "Apollo's Focus",
+    description: 'Zero wasted minutes in a week',
+    icon: Target,
+    color: 'from-gold-500 to-gold-700',
+    borderColor: 'border-gold-400/50',
+    textColor: 'text-gold-400',
+    requirement: (sprints: SprintWithCategory[]) => {
+      // Group sprints by week
+      const weekData: Record<string, { hasWasted: boolean; sprintCount: number }> = {};
+
+      sprints.forEach(sprint => {
+        const date = new Date(sprint.block_start);
+        const dayOfWeek = date.getDay();
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const weekStart = new Date(date);
+        weekStart.setDate(date.getDate() + mondayOffset);
+        const weekKey = weekStart.toISOString().split('T')[0];
+
+        if (!weekData[weekKey]) {
+          weekData[weekKey] = { hasWasted: false, sprintCount: 0 };
+        }
+        weekData[weekKey].sprintCount++;
+        if (sprint.categories?.name === 'Wasted') {
+          weekData[weekKey].hasWasted = true;
+        }
+      });
+
+      // Count weeks with no wasted time (minimum 20 sprints to qualify)
+      return Object.values(weekData).filter(
+        week => !week.hasWasted && week.sprintCount >= 20
+      ).length;
+    },
+  },
+];
+
+interface SprintWithCategory extends Sprint {
+  categories?: {
+    name: string;
+    color: string;
+    icon: string;
+  };
+}
+
 interface AgoraViewProps {
   weeklyStats: WeeklyStats[];
   prevWeekStats: { user_id: string; rank_position: number | null }[];
-  phalanxes: Phalanx[];
-  userPhalanxIds: string[];
   currentUserId: string;
   userDisplayName: string;
-  hasCreatedPhalanx: boolean;
   weekStart: Date;
+  sprints: SprintWithCategory[];
 }
 
 const TIER_STYLES = {
@@ -150,24 +298,12 @@ const TIER_STYLES = {
 export function AgoraView({
   weeklyStats,
   prevWeekStats,
-  phalanxes,
-  userPhalanxIds,
   currentUserId,
   userDisplayName,
-  hasCreatedPhalanx,
   weekStart,
+  sprints,
 }: AgoraViewProps) {
-  const [showCreatePhalanx, setShowCreatePhalanx] = useState(false);
-  const [showJoinPhalanx, setShowJoinPhalanx] = useState(false);
   const [expandedHistory, setExpandedHistory] = useState(false);
-  const [phalanxName, setPhalanxName] = useState('');
-  const [joinCode, setJoinCode] = useState('');
-  const [newJoinCode, setNewJoinCode] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const supabase = createClient();
   const countdown = useCountdown();
 
   const formatWeekRange = () => {
@@ -183,96 +319,18 @@ export function AgoraView({
     return prevRank - currentRank; // Positive = moved up
   };
 
-  const handleCreatePhalanx = async () => {
-    if (!phalanxName.trim() || !newJoinCode.trim()) return;
-    setSaving(true);
-    setError(null);
-
-    const { data, error: createError } = await supabase
-      .from('phalanxes')
-      .insert({
-        name: phalanxName.trim(),
-        join_code: newJoinCode.trim().toUpperCase(),
-        created_by: currentUserId,
-      })
-      .select()
-      .single();
-
-    if (createError) {
-      setError(createError.message.includes('unique') ? 'Join code already taken' : createError.message);
-      setSaving(false);
-      return;
-    }
-
-    // Auto-join the created phalanx
-    if (data) {
-      await supabase.from('phalanx_members').insert({
-        phalanx_id: data.id,
-        user_id: currentUserId,
-      });
-    }
-
-    setSaving(false);
-    setShowCreatePhalanx(false);
-    window.location.reload();
-  };
-
-  const handleJoinPhalanx = async () => {
-    if (!joinCode.trim()) return;
-    setSaving(true);
-    setError(null);
-
-    // Find phalanx by join code
-    const { data: phalanx, error: findError } = await supabase
-      .from('phalanxes')
-      .select('id')
-      .eq('join_code', joinCode.trim().toUpperCase())
-      .single();
-
-    if (findError || !phalanx) {
-      setError('Phalanx not found. Check the join code.');
-      setSaving(false);
-      return;
-    }
-
-    // Join the phalanx
-    const { error: joinError } = await supabase
-      .from('phalanx_members')
-      .insert({
-        phalanx_id: phalanx.id,
-        user_id: currentUserId,
-      });
-
-    if (joinError) {
-      if (joinError.message.includes('maximum of 2')) {
-        setError('You can only be in 2 phalanxes');
-      } else if (joinError.message.includes('maximum of 6')) {
-        setError('This phalanx is full (max 6 members)');
-      } else {
-        setError(joinError.message);
-      }
-      setSaving(false);
-      return;
-    }
-
-    setSaving(false);
-    setShowJoinPhalanx(false);
-    window.location.reload();
-  };
-
-  const copyJoinCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  // Calculate badge counts from all-time sprints
+  const badgeCounts = useMemo(() => {
+    return BADGES.map(badge => ({
+      ...badge,
+      count: badge.requirement(sprints),
+    }));
+  }, [sprints]);
 
   // Group stats by tier
   const olympians = weeklyStats.filter(s => s.tier === 'olympian');
   const spartans = weeklyStats.filter(s => s.tier === 'spartan');
   const helots = weeklyStats.filter(s => s.tier === 'helot');
-
-  // User's phalanxes
-  const myPhalanxes = phalanxes.filter(p => userPhalanxIds.includes(p.id));
 
   return (
     <div className="relative space-y-6">
@@ -304,6 +362,89 @@ export function AgoraView({
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Journey / Badges Section */}
+      <div className="neo-card p-6 space-y-6">
+        <div className="flex items-center gap-3 pb-4 border-b border-border/50">
+          <Award className="h-6 w-6 text-gold-400" />
+          <div>
+            <h2 className="text-lg font-bold italic text-gold-400">Your Journey</h2>
+            <p className="text-xs text-muted-foreground">All-time achievements</p>
+          </div>
+        </div>
+
+        <div className="grid gap-4">
+          {badgeCounts.map((badge) => {
+            const Icon = badge.icon;
+            const isUnlocked = badge.count > 0;
+
+            return (
+              <div
+                key={badge.id}
+                className={cn(
+                  'relative flex items-center gap-4 p-4 rounded-xl border transition-all',
+                  isUnlocked
+                    ? `bg-gradient-to-br ${badge.color} ${badge.borderColor}`
+                    : 'bg-card/50 border-border/30 opacity-60'
+                )}
+              >
+                {/* Badge icon */}
+                <div
+                  className={cn(
+                    'w-14 h-14 rounded-xl flex items-center justify-center',
+                    isUnlocked
+                      ? 'bg-black/20'
+                      : 'bg-muted/30'
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      'h-7 w-7',
+                      isUnlocked ? 'text-white' : 'text-muted-foreground/50'
+                    )}
+                  />
+                </div>
+
+                {/* Badge info */}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3
+                      className={cn(
+                        'font-bold text-lg',
+                        isUnlocked ? 'text-white' : 'text-muted-foreground'
+                      )}
+                    >
+                      {badge.name}
+                    </h3>
+                    {isUnlocked && (
+                      <span className="px-2 py-0.5 rounded-full bg-black/30 text-white text-xs font-bold">
+                        ×{badge.count}
+                      </span>
+                    )}
+                  </div>
+                  <p
+                    className={cn(
+                      'text-sm',
+                      isUnlocked ? 'text-white/70' : 'text-muted-foreground/50'
+                    )}
+                  >
+                    {badge.description}
+                  </p>
+                </div>
+
+                {/* Lock indicator for locked badges */}
+                {!isUnlocked && (
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                    <div className="w-8 h-8 rounded-full bg-muted/20 flex items-center justify-center">
+                      <Shield className="h-4 w-4 text-muted-foreground/30" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -408,195 +549,6 @@ export function AgoraView({
           </div>
         )}
       </div>
-
-      {/* Phalanx Section */}
-      <div className="neo-card p-6 space-y-6">
-        <div className="flex items-center justify-between pb-4 border-b border-border/50">
-          <div className="flex items-center gap-3">
-            <Users className="h-6 w-6 text-gold-400" />
-            <h2 className="text-lg font-bold italic text-gold-400">Phalanxes</h2>
-          </div>
-          <div className="flex gap-2">
-            {userPhalanxIds.length < 2 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowJoinPhalanx(true)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <LogIn className="h-4 w-4 mr-2" />
-                Join
-              </Button>
-            )}
-            {!hasCreatedPhalanx && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowCreatePhalanx(true)}
-                className="text-gold-400 hover:text-gold-300"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Create
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Create Phalanx Form */}
-        {showCreatePhalanx && (
-          <div className="p-4 rounded-xl border-2 border-gold-400/50 bg-card space-y-4">
-            <h3 className="font-bold text-gold-400">Create Your Phalanx</h3>
-            {error && (
-              <p className="text-sm text-red-400 bg-red-900/20 p-2 rounded">{error}</p>
-            )}
-            <div className="space-y-2">
-              <Label>Phalanx Name</Label>
-              <Input
-                value={phalanxName}
-                onChange={(e) => setPhalanxName(e.target.value)}
-                placeholder="e.g., The Spartans"
-                className="bg-background"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Join Code (others will use this to join)</Label>
-              <Input
-                value={newJoinCode}
-                onChange={(e) => setNewJoinCode(e.target.value.toUpperCase())}
-                placeholder="e.g., SPARTA24"
-                maxLength={12}
-                className="bg-background uppercase"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowCreatePhalanx(false);
-                  setError(null);
-                }}
-                className="border-border/50"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleCreatePhalanx}
-                disabled={saving || !phalanxName.trim() || !newJoinCode.trim()}
-                className="flex-1 bg-gradient-to-r from-gold-600 to-gold-500"
-              >
-                {saving ? 'Creating...' : 'Create Phalanx'}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Join Phalanx Form */}
-        {showJoinPhalanx && (
-          <div className="p-4 rounded-xl border-2 border-laurel-500/50 bg-card space-y-4">
-            <h3 className="font-bold text-laurel-400">Join a Phalanx</h3>
-            {error && (
-              <p className="text-sm text-red-400 bg-red-900/20 p-2 rounded">{error}</p>
-            )}
-            <div className="space-y-2">
-              <Label>Join Code</Label>
-              <Input
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                placeholder="Enter join code"
-                className="bg-background uppercase"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowJoinPhalanx(false);
-                  setError(null);
-                }}
-                className="border-border/50"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleJoinPhalanx}
-                disabled={saving || !joinCode.trim()}
-                className="flex-1 bg-gradient-to-r from-laurel-700 to-laurel-600"
-              >
-                {saving ? 'Joining...' : 'Join Phalanx'}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* My Phalanxes */}
-        {myPhalanxes.length > 0 && (
-          <div className="space-y-3">
-            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wide">Your Phalanxes</h3>
-            {myPhalanxes.map((phalanx) => (
-              <PhalanxCard
-                key={phalanx.id}
-                phalanx={phalanx}
-                isOwner={phalanx.created_by === currentUserId}
-                onCopyCode={() => copyJoinCode(phalanx.join_code)}
-                copied={copied}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* All Phalanxes Leaderboard */}
-        {phalanxes.length > 0 && (
-          <div className="space-y-3">
-            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wide">Phalanx Rankings</h3>
-            {phalanxes.map((phalanx, index) => (
-              <div
-                key={phalanx.id}
-                className={cn(
-                  'flex items-center justify-between p-3 rounded-xl',
-                  TIER_STYLES[phalanx.tier || 'spartan'].bg,
-                  'border',
-                  TIER_STYLES[phalanx.tier || 'spartan'].border,
-                  userPhalanxIds.includes(phalanx.id) && 'ring-2 ring-gold-400/50'
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    'w-8 h-8 rounded-lg flex items-center justify-center font-bold',
-                    'bg-black/20'
-                  )}>
-                    #{index + 1}
-                  </div>
-                  <div>
-                    <div className="font-bold">{phalanx.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {phalanx.member_count} members
-                      {phalanx.has_penalty && (
-                        <span className="text-red-400 ml-2">Penalty Active</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className={cn('text-xl font-black italic', TIER_STYLES[phalanx.tier || 'spartan'].text)}>
-                    {(phalanx.total_ranking_score * phalanx.penalty_multiplier).toFixed(2)}
-                  </div>
-                  {phalanx.has_penalty && (
-                    <div className="text-xs text-red-400">×{phalanx.penalty_multiplier}</div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {phalanxes.length === 0 && myPhalanxes.length === 0 && !showCreatePhalanx && !showJoinPhalanx && (
-          <div className="text-center py-8">
-            <Users className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-            <p className="text-muted-foreground">No phalanxes yet</p>
-            <p className="text-sm text-muted-foreground/70">Create or join one to compete with friends!</p>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
@@ -673,75 +625,6 @@ function LeaderboardRow({
           {stat.ranking_score.toFixed(2)}
         </div>
       </div>
-    </div>
-  );
-}
-
-// Phalanx card component
-function PhalanxCard({
-  phalanx,
-  isOwner,
-  onCopyCode,
-  copied,
-}: {
-  phalanx: Phalanx;
-  isOwner: boolean;
-  onCopyCode: () => void;
-  copied: boolean;
-}) {
-  return (
-    <div className={cn(
-      'p-4 rounded-xl',
-      'bg-gradient-to-br from-laurel-900/50 to-laurel-800/30',
-      'border border-laurel-700/30'
-    )}>
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h4 className="font-bold text-gold-400">{phalanx.name}</h4>
-          {isOwner && <span className="text-xs text-muted-foreground">Owner</span>}
-        </div>
-        <button
-          onClick={onCopyCode}
-          className="flex items-center gap-1 px-2 py-1 rounded bg-card text-xs hover:bg-card/80 transition-colors"
-        >
-          {copied ? <Check className="h-3 w-3 text-laurel-400" /> : <Copy className="h-3 w-3" />}
-          {phalanx.join_code}
-        </button>
-      </div>
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          {phalanx.member_count}/6 members
-        </div>
-        <div className="flex items-center gap-2">
-          {phalanx.has_penalty && (
-            <span className="text-xs text-red-400 bg-red-900/20 px-2 py-1 rounded">
-              Penalty ×{phalanx.penalty_multiplier}
-            </span>
-          )}
-          <span className="font-bold text-gold-400">
-            Score: {(phalanx.total_ranking_score * phalanx.penalty_multiplier).toFixed(2)}
-          </span>
-        </div>
-      </div>
-      {/* Members list */}
-      {phalanx.phalanx_members && phalanx.phalanx_members.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-border/50">
-          <div className="flex flex-wrap gap-2">
-            {phalanx.phalanx_members.map((member) => (
-              <div
-                key={member.id}
-                className={cn(
-                  'px-2 py-1 rounded text-xs',
-                  member.goal_met ? 'bg-laurel-900/50 text-laurel-300' : 'bg-red-900/30 text-red-400'
-                )}
-              >
-                {member.profiles?.display_name || 'Anonymous'}
-                {!member.goal_met && ' (failed)'}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

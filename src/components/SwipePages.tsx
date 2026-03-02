@@ -1,17 +1,22 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { NewsView } from '@/components/NewsView';
 import { DailyView } from '@/components/DailyView';
 import { StatsView } from '@/components/StatsView';
 import { AgoraView } from '@/components/AgoraView';
 import { SprintMode } from '@/components/SprintMode';
-import { Category, Sprint, DailyWrapup, WeeklyGoal, WeeklyStats, Phalanx } from '@/lib/types';
+import { Category, Sprint, DailyWrapup, WeeklyGoal, WeeklyStats } from '@/lib/types';
 
-const PAGES = ['/news', '/', '/stats', '/agora'] as const;
-const PAGE_LABELS = ['News', 'Today', 'Stats', 'Agora'] as const;
+const PAGES = ['/agora', '/', '/stats'] as const;
+const PAGE_LABELS = ['Agora', 'Today', 'Stats'] as const;
+
+// Animation constants for smooth swiping
+const SPRING_TENSION = 300;
+const SPRING_DAMPING = 30;
+const VELOCITY_THRESHOLD = 0.3; // Lower threshold for more responsive swipes
+const DISTANCE_THRESHOLD = 0.15; // 15% of screen width
 
 interface SprintWithCategory extends Sprint {
   categories?: {
@@ -28,16 +33,14 @@ interface SwipePagesProps {
   todayDate: Date;
   userId: string;
   weekSprints: SprintWithCategory[];
+  allSprints: SprintWithCategory[];
   weeklyGoal: WeeklyGoal | null;
   pastGoals: WeeklyGoal[];
   weekWrapups: DailyWrapup[];
   weekStart: Date;
   weeklyStats: WeeklyStats[];
   prevWeekStats: { user_id: string; rank_position: number | null }[];
-  phalanxes: Phalanx[];
-  userPhalanxIds: string[];
   userDisplayName: string;
-  hasCreatedPhalanx: boolean;
 }
 
 export function SwipePages({
@@ -47,16 +50,14 @@ export function SwipePages({
   todayDate,
   userId,
   weekSprints,
+  allSprints,
   weeklyGoal,
   pastGoals,
   weekWrapups,
   weekStart,
   weeklyStats,
   prevWeekStats,
-  phalanxes,
-  userPhalanxIds,
   userDisplayName,
-  hasCreatedPhalanx,
 }: SwipePagesProps) {
   const pathname = usePathname();
 
@@ -69,12 +70,18 @@ export function SwipePages({
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
   const touchStartTime = useRef<number>(0);
+  const lastTouchX = useRef<number | null>(null);
+  const lastTouchTime = useRef<number>(0);
+  const velocityX = useRef<number>(0);
   const isHorizontalSwipe = useRef<boolean | null>(null);
   const canSwipe = useRef<boolean>(true);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
   // Detect mobile vs desktop
   useEffect(() => {
@@ -94,43 +101,89 @@ export function SwipePages({
     }
   }, [pathname, currentIndex]);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (!isMobile) return;
+  // Clean up animation frame on unmount
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
+
+  // Smooth velocity calculation using exponential moving average
+  const updateVelocity = useCallback((currentX: number, currentTime: number) => {
+    if (lastTouchX.current !== null && lastTouchTime.current !== 0) {
+      const deltaTime = currentTime - lastTouchTime.current;
+      if (deltaTime > 0) {
+        const instantVelocity = (currentX - lastTouchX.current) / deltaTime;
+        // Exponential smoothing for more natural feel
+        velocityX.current = velocityX.current * 0.7 + instantVelocity * 0.3;
+      }
+    }
+    lastTouchX.current = currentX;
+    lastTouchTime.current = currentTime;
+  }, []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!isMobile || isAnimating) return;
 
     const isEditorOpen = document.querySelector('[data-editing="true"]') !== null;
     canSwipe.current = !isEditorOpen;
 
     if (!canSwipe.current) return;
 
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
+    const touch = e.touches[0];
+    touchStartX.current = touch.clientX;
+    touchStartY.current = touch.clientY;
     touchStartTime.current = Date.now();
+    lastTouchX.current = touch.clientX;
+    lastTouchTime.current = Date.now();
+    velocityX.current = 0;
     isHorizontalSwipe.current = null;
     setIsDragging(true);
-  };
+  }, [isMobile, isAnimating]);
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!isMobile || !canSwipe.current || touchStartX.current === null || touchStartY.current === null) return;
 
-    const currentX = e.touches[0].clientX;
-    const currentY = e.touches[0].clientY;
+    const touch = e.touches[0];
+    const currentX = touch.clientX;
+    const currentY = touch.clientY;
     const deltaX = currentX - touchStartX.current;
     const deltaY = currentY - touchStartY.current;
+    const currentTime = Date.now();
 
-    if (isHorizontalSwipe.current === null && (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10)) {
-      isHorizontalSwipe.current = Math.abs(deltaX) > Math.abs(deltaY);
+    // Determine swipe direction on first significant movement
+    if (isHorizontalSwipe.current === null && (Math.abs(deltaX) > 8 || Math.abs(deltaY) > 8)) {
+      isHorizontalSwipe.current = Math.abs(deltaX) > Math.abs(deltaY) * 1.2;
     }
 
     if (isHorizontalSwipe.current) {
-      let offset = deltaX;
-      if ((currentIndex === 0 && deltaX > 0) || (currentIndex === PAGES.length - 1 && deltaX < 0)) {
-        offset = deltaX * 0.3;
-      }
-      setDragOffset(offset);
-    }
-  };
+      // Prevent vertical scrolling while horizontal swiping
+      e.preventDefault();
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
+      // Update velocity for momentum
+      updateVelocity(currentX, currentTime);
+
+      // Apply resistance at boundaries with smoother curve
+      let offset = deltaX;
+      const resistance = 0.25;
+      if ((currentIndex === 0 && deltaX > 0) || (currentIndex === PAGES.length - 1 && deltaX < 0)) {
+        // Exponential resistance for more natural boundary feel
+        offset = Math.sign(deltaX) * Math.pow(Math.abs(deltaX), 0.7) * resistance;
+      }
+
+      // Use requestAnimationFrame for smoother updates
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      animationFrameRef.current = requestAnimationFrame(() => {
+        setDragOffset(offset);
+      });
+    }
+  }, [isMobile, currentIndex, updateVelocity]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (!isMobile || !canSwipe.current || touchStartX.current === null) {
       resetTouch();
       return;
@@ -138,45 +191,80 @@ export function SwipePages({
 
     const touchEndX = e.changedTouches[0].clientX;
     const deltaX = touchEndX - touchStartX.current;
-    const velocity = Math.abs(deltaX) / (Date.now() - touchStartTime.current);
+    const screenWidth = window.innerWidth;
 
-    const threshold = window.innerWidth * 0.25;
-    const isFastSwipe = velocity > 0.5;
-    const shouldChange = Math.abs(deltaX) > threshold || isFastSwipe;
+    // Use both velocity and distance for determining page change
+    const velocity = velocityX.current;
+    const distanceRatio = Math.abs(deltaX) / screenWidth;
 
-    if (shouldChange && isHorizontalSwipe.current) {
-      if (deltaX > 0 && currentIndex > 0) {
+    // More responsive: either fast swipe OR sufficient distance
+    const isFastSwipe = Math.abs(velocity) > VELOCITY_THRESHOLD;
+    const isSufficientDistance = distanceRatio > DISTANCE_THRESHOLD;
+    const shouldChangePage = (isFastSwipe || isSufficientDistance) && isHorizontalSwipe.current;
+
+    if (shouldChangePage) {
+      // Determine direction based on velocity if fast swipe, otherwise by distance
+      const direction = isFastSwipe ? Math.sign(velocity) : Math.sign(deltaX);
+
+      if (direction > 0 && currentIndex > 0) {
         navigateToPage(currentIndex - 1);
-      } else if (deltaX < 0 && currentIndex < PAGES.length - 1) {
+      } else if (direction < 0 && currentIndex < PAGES.length - 1) {
         navigateToPage(currentIndex + 1);
       } else {
-        setDragOffset(0);
+        // Bounce back with animation
+        animateToPosition(0);
       }
     } else {
-      setDragOffset(0);
+      // Snap back to current page
+      animateToPosition(0);
     }
 
     resetTouch();
-  };
+  }, [isMobile, currentIndex]);
 
-  const resetTouch = () => {
+  const animateToPosition = useCallback((targetOffset: number) => {
+    setIsAnimating(true);
+    setDragOffset(targetOffset);
+    // Reset animation state after transition completes
+    setTimeout(() => {
+      setIsAnimating(false);
+    }, 350);
+  }, []);
+
+  const resetTouch = useCallback(() => {
     touchStartX.current = null;
     touchStartY.current = null;
+    lastTouchX.current = null;
+    lastTouchTime.current = 0;
+    velocityX.current = 0;
     isHorizontalSwipe.current = null;
     setIsDragging(false);
-  };
+  }, []);
 
-  const navigateToPage = (index: number) => {
+  const navigateToPage = useCallback((index: number) => {
+    setIsAnimating(true);
     setCurrentIndex(index);
     setDragOffset(0);
     window.history.replaceState(null, '', PAGES[index]);
-  };
+    setTimeout(() => {
+      setIsAnimating(false);
+    }, 350);
+  }, []);
 
   // Render the current page content
   const renderPage = (index: number) => {
     switch (index) {
       case 0:
-        return <NewsView />;
+        return (
+          <AgoraView
+            weeklyStats={weeklyStats}
+            prevWeekStats={prevWeekStats}
+            currentUserId={userId}
+            userDisplayName={userDisplayName}
+            weekStart={weekStart}
+            sprints={allSprints}
+          />
+        );
       case 1:
         return (
           <DailyView
@@ -199,19 +287,6 @@ export function SwipePages({
             userId={userId}
           />
         );
-      case 3:
-        return (
-          <AgoraView
-            weeklyStats={weeklyStats}
-            prevWeekStats={prevWeekStats}
-            phalanxes={phalanxes}
-            userPhalanxIds={userPhalanxIds}
-            currentUserId={userId}
-            userDisplayName={userDisplayName}
-            hasCreatedPhalanx={hasCreatedPhalanx}
-            weekStart={weekStart}
-          />
-        );
       default:
         return null;
     }
@@ -230,27 +305,36 @@ export function SwipePages({
     );
   }
 
-  // Mobile: Swipeable pages
+  // Mobile: Swipeable pages with smooth animations
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div
+        ref={containerRef}
         className="flex-1 flex flex-col touch-pan-y"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
         <div
-          className="flex-1 flex"
+          className="flex-1 flex will-change-transform"
           style={{
             width: `${PAGES.length * 100}vw`,
-            transform: `translateX(calc(-${currentIndex * 100}vw + ${dragOffset}px))`,
-            transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.2, 0, 0, 1)',
+            transform: `translate3d(calc(-${currentIndex * 100}vw + ${dragOffset}px), 0, 0)`,
+            transition: isDragging
+              ? 'none'
+              : 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)',
+            backfaceVisibility: 'hidden',
+            WebkitBackfaceVisibility: 'hidden',
           }}
         >
           {PAGES.map((_, index) => (
             <div
               key={PAGES[index]}
-              className="w-screen flex-shrink-0 overflow-y-auto"
+              className="w-screen flex-shrink-0 overflow-y-auto overscroll-y-contain"
+              style={{
+                // Enable smooth scrolling within pages
+                WebkitOverflowScrolling: 'touch',
+              }}
             >
               <div className="container mx-auto px-4 py-6 max-w-4xl">
                 {renderPage(index)}
@@ -260,17 +344,17 @@ export function SwipePages({
         </div>
       </div>
 
-      {/* Page indicator dots */}
-      <div className="flex items-center justify-center gap-2 py-3 bg-background">
+      {/* Page indicator dots with smooth transitions */}
+      <div className="flex items-center justify-center gap-2 py-3 bg-background border-t border-border/20">
         {PAGES.map((page, index) => (
           <button
             key={page}
             onClick={() => navigateToPage(index)}
             className={cn(
-              'transition-all duration-200',
+              'transition-all duration-300 ease-out',
               index === currentIndex
-                ? 'w-6 h-2 bg-gold-400 rounded-full'
-                : 'w-2 h-2 bg-muted-foreground/30 rounded-full hover:bg-muted-foreground/50'
+                ? 'w-6 h-2 bg-gold-400 rounded-full shadow-[0_0_8px_rgba(212,175,55,0.4)]'
+                : 'w-2 h-2 bg-muted-foreground/30 rounded-full hover:bg-muted-foreground/50 active:scale-90'
             )}
             aria-label={`Go to ${PAGE_LABELS[index]}`}
           />

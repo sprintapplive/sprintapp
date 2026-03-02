@@ -34,18 +34,6 @@ export default async function AgoraPage() {
     .select('user_id, rank_position')
     .eq('week_start', prevWeekStart.toISOString().split('T')[0]);
 
-  // Fetch phalanxes with members
-  const { data: phalanxes } = await supabase
-    .from('phalanxes')
-    .select('*, phalanx_members(*, profiles(display_name))')
-    .order('total_ranking_score', { ascending: false });
-
-  // Fetch user's phalanxes
-  const { data: userPhalanxes } = await supabase
-    .from('phalanx_members')
-    .select('phalanx_id')
-    .eq('user_id', user.id);
-
   // Fetch user's profile
   const { data: profile } = await supabase
     .from('profiles')
@@ -53,23 +41,20 @@ export default async function AgoraPage() {
     .eq('id', user.id)
     .single();
 
-  // Check if user has created a phalanx
-  const { data: createdPhalanx } = await supabase
-    .from('phalanxes')
-    .select('id')
-    .eq('created_by', user.id)
-    .maybeSingle();
+  // Fetch all sprints for Journey badges
+  const { data: allSprints } = await supabase
+    .from('sprints')
+    .select('*, categories(name, color, icon)')
+    .order('block_start', { ascending: true });
 
   return (
     <AgoraView
       weeklyStats={weeklyStats || []}
       prevWeekStats={prevWeekStats || []}
-      phalanxes={phalanxes || []}
-      userPhalanxIds={userPhalanxes?.map(p => p.phalanx_id) || []}
       currentUserId={user.id}
       userDisplayName={profile?.display_name || user.email?.split('@')[0] || 'Anonymous'}
-      hasCreatedPhalanx={!!createdPhalanx}
       weekStart={weekStart}
+      sprints={allSprints || []}
     />
   );
 }

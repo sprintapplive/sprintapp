@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { TimeBlock } from './TimeBlock';
 import { Category, Sprint, getTimeBlocks, getCurrentTimeBlock } from '@/lib/types';
@@ -21,6 +22,7 @@ export function Timeline({ initialSprints, initialCategories, date, userId }: Ti
   const [visibleRange, setVisibleRange] = useState({ start: 12, end: 44 }); // 6am to 10pm default
 
   const supabase = createClient();
+  const router = useRouter();
 
   // Sync sprints when initialSprints changes (e.g., date change)
   useEffect(() => {
@@ -84,6 +86,8 @@ export function Timeline({ initialSprints, initialCategories, date, userId }: Ti
             ? { ...s, category_id: data.categoryId, description: data.description || null, score: data.score }
             : s
         ));
+        // Trigger server refresh to update stats
+        router.refresh();
       } else {
         console.error('Error updating sprint:', error);
       }
@@ -103,6 +107,8 @@ export function Timeline({ initialSprints, initialCategories, date, userId }: Ti
 
       if (!error && newSprint) {
         setSprints(prev => [...prev, newSprint]);
+        // Trigger server refresh to update stats
+        router.refresh();
       } else {
         console.error('Error creating sprint:', error);
       }
@@ -121,6 +127,8 @@ export function Timeline({ initialSprints, initialCategories, date, userId }: Ti
 
     if (!error) {
       setSprints(prev => prev.filter(s => s.id !== existingSprint.id));
+      // Trigger server refresh to update stats
+      router.refresh();
     }
   };
 
