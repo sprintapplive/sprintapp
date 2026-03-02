@@ -30,14 +30,14 @@ interface SwipePagesProps {
   todaySprints: Sprint[];
   categories: Category[];
   todayWrapup: DailyWrapup | null;
-  todayDate: Date;
+  todayDateStr: string; // YYYY-MM-DD format to avoid timezone issues
   userId: string;
   weekSprints: SprintWithCategory[];
   allSprints: SprintWithCategory[];
   weeklyGoal: WeeklyGoal | null;
   pastGoals: WeeklyGoal[];
   weekWrapups: DailyWrapup[];
-  weekStart: Date;
+  weekStartStr: string; // YYYY-MM-DD format to avoid timezone issues
   weeklyStats: WeeklyStats[];
   prevWeekStats: { user_id: string; rank_position: number | null }[];
   userDisplayName: string;
@@ -47,18 +47,28 @@ export function SwipePages({
   todaySprints,
   categories,
   todayWrapup,
-  todayDate,
+  todayDateStr,
   userId,
   weekSprints,
   allSprints,
   weeklyGoal,
   pastGoals,
   weekWrapups,
-  weekStart,
+  weekStartStr,
   weeklyStats,
   prevWeekStats,
   userDisplayName,
 }: SwipePagesProps) {
+  // Convert date strings to local Date objects on client side
+  const todayDate = (() => {
+    const [year, month, day] = todayDateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  })();
+
+  const weekStart = (() => {
+    const [year, month, day] = weekStartStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  })();
   const pathname = usePathname();
 
   const getPageIndex = (path: string) => {
@@ -140,7 +150,7 @@ export function SwipePages({
     lastTouchTime.current = Date.now();
     velocityX.current = 0;
     isHorizontalSwipe.current = null;
-    setIsDragging(true);
+    // Don't set isDragging yet - wait until we confirm it's a horizontal swipe
   }, [isMobile, isAnimating]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
@@ -156,6 +166,10 @@ export function SwipePages({
     // Determine swipe direction on first significant movement
     if (isHorizontalSwipe.current === null && (Math.abs(deltaX) > 8 || Math.abs(deltaY) > 8)) {
       isHorizontalSwipe.current = Math.abs(deltaX) > Math.abs(deltaY) * 1.2;
+      // Only start dragging mode once we confirm it's a horizontal swipe
+      if (isHorizontalSwipe.current) {
+        setIsDragging(true);
+      }
     }
 
     if (isHorizontalSwipe.current) {

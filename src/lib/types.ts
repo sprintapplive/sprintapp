@@ -239,20 +239,22 @@ export function getDayBoundsInTimezone(dateStr: string, timezone: string): { sta
 }
 
 // Get the week start (Monday) for a date in a specific timezone
-export function getWeekStartInTimezone(dateStr: string, timezone: string): string {
+// Uses pure date math without timezone conversion issues
+export function getWeekStartInTimezone(dateStr: string, _timezone: string): string {
   const [year, month, day] = dateStr.split('-').map(Number);
-  const date = new Date(year, month - 1, day);
+  // Create date at noon to avoid any DST edge cases
+  const date = new Date(year, month - 1, day, 12, 0, 0);
   const dayOfWeek = date.getDay();
+  // Sunday = 0, Monday = 1, ..., Saturday = 6
+  // We want Monday as start of week
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
   date.setDate(date.getDate() + mondayOffset);
 
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-  return formatter.format(date);
+  // Format back as YYYY-MM-DD using local date parts
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 // Convert a Date to local date string in timezone

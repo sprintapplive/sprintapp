@@ -160,14 +160,14 @@ export default async function DashboardLayout({
           todaySprints={todaySprintsResult.data || []}
           categories={categories}
           todayWrapup={todayWrapupResult.data}
-          todayDate={today}
+          todayDateStr={todayStr}
           userId={user.id}
           weekSprints={weekSprintsResult.data || []}
           allSprints={allSprintsResult.data || []}
           weeklyGoal={currentGoal}
           pastGoals={pastGoals}
           weekWrapups={weekWrapupsResult.data || []}
-          weekStart={weekStart}
+          weekStartStr={weekStartStr}
           weeklyStats={weeklyStatsResult.data || []}
           prevWeekStats={prevWeekStatsResult.data || []}
           userDisplayName={profileData?.display_name || user.email?.split('@')[0] || 'Anonymous'}
