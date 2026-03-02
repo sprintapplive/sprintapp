@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useRef, TouchEvent, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Sprint, Category, CATEGORY_COLORS, formatTimeBlock, isCurrentBlock, isBlockInPast, getScoreColor } from '@/lib/types';
-import { Brain, Briefcase, Dumbbell, Moon, Users, XCircle, Clock, ChevronLeft, ChevronRight, MessageSquare, Circle, Check } from 'lucide-react';
+import { Brain, Briefcase, Dumbbell, Moon, Users, XCircle, Clock, ChevronLeft, ChevronRight, MessageSquare, Circle, ArrowLeft } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 
 interface TimeBlockProps {
@@ -25,17 +25,24 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   'circle': Circle,
 };
 
+type EditStep = 'category' | 'score';
+
 export function TimeBlock({ blockStart, sprint, category, categories, onSave, onDelete }: TimeBlockProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [categoryIndex, setCategoryIndex] = useState(0);
+  const [editStep, setEditStep] = useState<EditStep>('category');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Touch handling for swipe
-  const touchStartX = useRef<number>(0);
-  const touchStartTime = useRef<number>(0);
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  // Detect mobile
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const isCurrent = isCurrentBlock(blockStart);
   const isPast = isBlockInPast(blockStart);
@@ -45,59 +52,19 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
   useEffect(() => {
     if (isEditing) {
       if (sprint) {
-        const idx = categories.findIndex(c => c.id === sprint.category_id);
-        setCategoryIndex(idx >= 0 ? idx : 0);
+        setSelectedCategoryId(sprint.category_id);
         setNotes(sprint.description || '');
+        // If editing existing sprint on mobile, go straight to score step
+        if (isMobile) {
+          setEditStep('score');
+        }
       } else {
-        setCategoryIndex(0);
+        setSelectedCategoryId(null);
         setNotes('');
+        setEditStep('category');
       }
     }
-  }, [isEditing, sprint, categories]);
-
-  const handleTouchStart = (e: TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartTime.current = Date.now();
-
-    // Long press detection for notes
-    longPressTimer.current = setTimeout(() => {
-      setShowNotes(true);
-    }, 500);
-  };
-
-  const handleTouchMove = (e: TouchEvent) => {
-    // Cancel long press if finger moves
-    if (longPressTimer.current) {
-      const moveDistance = Math.abs(e.touches[0].clientX - touchStartX.current);
-      if (moveDistance > 10) {
-        clearTimeout(longPressTimer.current);
-        longPressTimer.current = null;
-      }
-    }
-  };
-
-  const handleTouchEnd = (e: TouchEvent) => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-
-    if (!isEditing) return;
-
-    const touchEndX = e.changedTouches[0].clientX;
-    const diff = touchStartX.current - touchEndX;
-    const threshold = 50;
-
-    if (Math.abs(diff) > threshold) {
-      if (diff > 0) {
-        // Swipe left - next category
-        setCategoryIndex(prev => (prev + 1) % categories.length);
-      } else {
-        // Swipe right - previous category
-        setCategoryIndex(prev => (prev - 1 + categories.length) % categories.length);
-      }
-    }
-  };
+  }, [isEditing, sprint, isMobile]);
 
   const handleClick = () => {
     if (!isEditing) {
@@ -105,19 +72,27 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
     }
   };
 
+  const handleCategorySelect = (categoryId: string) => {
+    setSelectedCategoryId(categoryId);
+    if (isMobile) {
+      // On mobile, immediately go to score step
+      setEditStep('score');
+    }
+  };
+
   const handleScoreSelect = async (score: number) => {
-    const selectedCategory = categories[categoryIndex];
-    if (!selectedCategory) return;
+    if (!selectedCategoryId) return;
 
     setSaving(true);
     try {
       await onSave({
-        categoryId: selectedCategory.id,
+        categoryId: selectedCategoryId,
         description: notes,
         score,
       });
       setIsEditing(false);
       setShowNotes(false);
+      setEditStep('category');
     } catch (e) {
       console.error('Save error:', e);
     } finally {
@@ -129,17 +104,14 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
     setIsEditing(false);
     setShowNotes(false);
     setNotes('');
+    setEditStep('category');
   };
 
-  const goToCategory = (direction: 'prev' | 'next') => {
-    if (direction === 'next') {
-      setCategoryIndex(prev => (prev + 1) % categories.length);
-    } else {
-      setCategoryIndex(prev => (prev - 1 + categories.length) % categories.length);
-    }
+  const handleBack = () => {
+    setEditStep('category');
   };
 
-  const selectedCategory = categories[categoryIndex];
+  const selectedCategory = categories.find(c => c.id === selectedCategoryId);
   const selectedColor = selectedCategory ? CATEGORY_COLORS[selectedCategory.color] : '#4a6741';
   const SelectedIcon = selectedCategory ? (iconMap[selectedCategory.icon] || Circle) : Circle;
 
@@ -152,8 +124,167 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
 
   const Icon = category ? iconMap[category.icon] || Clock : Clock;
 
-  // EDITING MODE - Inline editor
+  // EDITING MODE
   if (isEditing) {
+    // Mobile: Tap-tap flow
+    if (isMobile) {
+      return (
+        <div
+          data-editing="true"
+          className={cn(
+            'relative w-full rounded-xl overflow-hidden transition-all',
+            'border-2 border-gold-400',
+            'shadow-[0_0_20px_rgba(212,175,55,0.3)]'
+          )}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-3 py-2 bg-card border-b border-border/50">
+            <div className="flex items-center gap-2">
+              {editStep === 'score' && (
+                <button
+                  onClick={handleBack}
+                  className="p-1 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+              )}
+              <span className="text-sm font-bold text-gold-400">{formatTimeBlock(blockStart)}</span>
+            </div>
+            <button
+              onClick={handleCancel}
+              className="text-xs text-muted-foreground hover:text-foreground px-2 py-1"
+            >
+              Cancel
+            </button>
+          </div>
+
+          {/* Step 1: Category Grid */}
+          {editStep === 'category' && (
+            <div className="p-3 bg-card">
+              <p className="text-xs text-muted-foreground text-center mb-3">What did you do?</p>
+              <div className="grid grid-cols-3 gap-3">
+                {categories.map((cat) => {
+                  const CatIcon = iconMap[cat.icon] || Circle;
+                  const isSelected = cat.id === selectedCategoryId;
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => handleCategorySelect(cat.id)}
+                      className={cn(
+                        'flex flex-col items-center gap-2 p-3 rounded-xl transition-all active:scale-95',
+                        isSelected
+                          ? 'ring-2 ring-gold-400 ring-offset-2 ring-offset-card'
+                          : 'hover:bg-muted/50'
+                      )}
+                      style={{ backgroundColor: CATEGORY_COLORS[cat.color] }}
+                    >
+                      <CatIcon className="h-6 w-6 text-white" />
+                      <span className="text-xs font-bold text-white truncate w-full text-center">
+                        {cat.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Score Grid */}
+          {editStep === 'score' && selectedCategory && (
+            <div className="bg-card">
+              {/* Selected category indicator */}
+              <div
+                className="flex items-center justify-center gap-3 p-3"
+                style={{ backgroundColor: selectedColor }}
+              >
+                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                  <SelectedIcon className="h-4 w-4 text-white" />
+                </div>
+                <span className="text-white font-bold">{selectedCategory.name}</span>
+              </div>
+
+              {/* Notes toggle */}
+              <div className="flex justify-center py-2 border-b border-border/50">
+                <button
+                  onClick={() => setShowNotes(!showNotes)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs transition-colors',
+                    showNotes ? 'bg-gold-400/20 text-gold-400' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  {showNotes ? 'Hide notes' : 'Add notes'}
+                </button>
+              </div>
+
+              {/* Notes input */}
+              {showNotes && (
+                <div className="px-3 py-2 border-b border-border/50">
+                  <Textarea
+                    placeholder="What did you work on?"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                    className="resize-none bg-background border-border/50 text-sm"
+                    autoFocus
+                  />
+                </div>
+              )}
+
+              {/* Score grid */}
+              <div className="p-3">
+                <p className="text-xs text-muted-foreground text-center mb-3">How'd it go?</p>
+                <div className="grid grid-cols-5 gap-2">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => handleScoreSelect(s)}
+                      disabled={saving}
+                      className={cn(
+                        'aspect-square rounded-xl font-bold text-lg transition-all',
+                        'active:scale-90',
+                        sprint?.score === s
+                          ? 'bg-gold-400 text-olympus-900 shadow-[0_0_10px_rgba(212,175,55,0.5)]'
+                          : s === 10
+                            ? 'bg-gradient-to-br from-gold-400 to-gold-600 text-olympus-900'
+                            : s >= 7
+                              ? 'bg-laurel-700 text-laurel-200'
+                              : s >= 4
+                                ? 'bg-muted text-foreground'
+                                : 'bg-red-900/50 text-red-300',
+                        saving && 'opacity-50'
+                      )}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Delete option for existing sprints */}
+              {sprint && onDelete && (
+                <div className="px-3 py-2 border-t border-border/50">
+                  <button
+                    onClick={async () => {
+                      setSaving(true);
+                      await onDelete();
+                      setIsEditing(false);
+                      setSaving(false);
+                    }}
+                    disabled={saving}
+                    className="w-full text-xs text-red-400 hover:text-red-300 py-1"
+                  >
+                    Delete sprint
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Desktop: Original layout with all visible
     return (
       <div
         data-editing="true"
@@ -162,9 +293,6 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
           'border-2 border-gold-400',
           'shadow-[0_0_20px_rgba(212,175,55,0.3)]'
         )}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
         {/* Header with time and cancel */}
         <div className="flex items-center justify-between px-3 py-2 bg-card border-b border-border/50">
@@ -189,86 +317,58 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
           </div>
         </div>
 
-        {/* Category Selector */}
-        <div
-          className="flex items-center justify-center gap-2 p-3"
-          style={{ backgroundColor: selectedColor }}
-        >
-          {/* Desktop: Left Arrow */}
-          <button
-            onClick={() => goToCategory('prev')}
-            className="hidden sm:flex p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+        {/* Category Selector Display */}
+        {selectedCategory && (
+          <div
+            className="flex items-center justify-center gap-2 p-3"
+            style={{ backgroundColor: selectedColor }}
           >
-            <ChevronLeft className="h-5 w-5 text-white" />
-          </button>
+            <button
+              onClick={() => {
+                const idx = categories.findIndex(c => c.id === selectedCategoryId);
+                const newIdx = (idx - 1 + categories.length) % categories.length;
+                setSelectedCategoryId(categories[newIdx].id);
+              }}
+              className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+            >
+              <ChevronLeft className="h-5 w-5 text-white" />
+            </button>
 
-          {/* Category Display */}
-          <div className="flex items-center gap-3 px-4">
-            <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
-              <SelectedIcon className="h-5 w-5 text-white" />
+            <div className="flex items-center gap-3 px-4">
+              <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
+                <SelectedIcon className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-white font-bold text-lg min-w-[100px] text-center">
+                {selectedCategory.name}
+              </span>
             </div>
-            <span className="text-white font-bold text-lg min-w-[100px] text-center">
-              {selectedCategory?.name}
-            </span>
+
+            <button
+              onClick={() => {
+                const idx = categories.findIndex(c => c.id === selectedCategoryId);
+                const newIdx = (idx + 1) % categories.length;
+                setSelectedCategoryId(categories[newIdx].id);
+              }}
+              className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+            >
+              <ChevronRight className="h-5 w-5 text-white" />
+            </button>
           </div>
+        )}
 
-          {/* Desktop: Right Arrow */}
-          <button
-            onClick={() => goToCategory('next')}
-            className="hidden sm:flex p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
-          >
-            <ChevronRight className="h-5 w-5 text-white" />
-          </button>
-        </div>
-
-        {/* Mobile swipe hint */}
-        <div className="sm:hidden w-full text-center py-1 bg-black/20">
-          <span className="text-white/60 text-xs">Swipe or tap to change</span>
-        </div>
-
-        {/* Category picker grid (mobile) - always visible */}
-        <div className="sm:hidden bg-card border-t border-border/50 p-2">
-          <div className="grid grid-cols-3 gap-2">
-            {categories.map((cat, idx) => {
-              const CatIcon = iconMap[cat.icon] || Circle;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setCategoryIndex(idx)}
-                  className={cn(
-                    'flex flex-col items-center gap-1 p-2 rounded-lg transition-all',
-                    idx === categoryIndex
-                      ? 'bg-gold-400/20 ring-2 ring-gold-400'
-                      : 'bg-muted/30 hover:bg-muted/50'
-                  )}
-                >
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center"
-                    style={{ backgroundColor: CATEGORY_COLORS[cat.color] }}
-                  >
-                    <CatIcon className="h-4 w-4 text-white" />
-                  </div>
-                  <span className="text-xs font-medium truncate w-full text-center">
-                    {cat.name}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Desktop: Category dropdown alternative */}
-        <div className="hidden sm:block px-3 py-2 bg-card border-t border-border/50">
+        {/* Desktop: Category chips */}
+        <div className="px-3 py-2 bg-card border-t border-border/50">
           <div className="flex flex-wrap gap-1.5">
-            {categories.map((cat, idx) => {
+            {categories.map((cat) => {
               const CatIcon = iconMap[cat.icon] || Circle;
+              const isSelected = cat.id === selectedCategoryId;
               return (
                 <button
                   key={cat.id}
-                  onClick={() => setCategoryIndex(idx)}
+                  onClick={() => setSelectedCategoryId(cat.id)}
                   className={cn(
                     'flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-all',
-                    idx === categoryIndex
+                    isSelected
                       ? 'bg-gold-400/20 text-gold-400 ring-1 ring-gold-400'
                       : 'bg-muted/50 text-muted-foreground hover:bg-muted'
                   )}
@@ -306,9 +406,9 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
               <button
                 key={s}
                 onClick={() => handleScoreSelect(s)}
-                disabled={saving}
+                disabled={saving || !selectedCategoryId}
                 className={cn(
-                  'w-8 h-8 sm:w-9 sm:h-9 rounded-lg font-bold text-sm transition-all',
+                  'w-9 h-9 rounded-lg font-bold text-sm transition-all',
                   'active:scale-95',
                   sprint?.score === s
                     ? 'bg-gold-400 text-olympus-900 shadow-[0_0_10px_rgba(212,175,55,0.5)]'
@@ -317,7 +417,7 @@ export function TimeBlock({ blockStart, sprint, category, categories, onSave, on
                       : s >= 4
                         ? 'bg-muted text-muted-foreground hover:bg-muted/80'
                         : 'bg-red-900/30 text-red-400 hover:bg-red-900/50',
-                  saving && 'opacity-50'
+                  (saving || !selectedCategoryId) && 'opacity-50'
                 )}
               >
                 {s}

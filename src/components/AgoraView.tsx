@@ -12,10 +12,10 @@ import {
 // Greek columns SVG component - slowly rotating
 function GreekColumns() {
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ maxHeight: '100vh' }}>
       <svg
         viewBox="0 0 800 800"
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] opacity-[0.03] dark:opacity-[0.05] animate-spin-slow"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-[600px] max-h-[600px] opacity-[0.03] dark:opacity-[0.05] animate-spin-slow"
       >
         {/* Circular arrangement of columns */}
         {Array.from({ length: 12 }).map((_, i) => {
@@ -333,7 +333,7 @@ export function AgoraView({
   const helots = weeklyStats.filter(s => s.tier === 'helot');
 
   return (
-    <div className="relative space-y-6">
+    <div className="relative space-y-6 overflow-hidden">
       {/* Rotating Greek columns background */}
       <GreekColumns />
 
