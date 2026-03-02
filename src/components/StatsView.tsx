@@ -430,15 +430,7 @@ export function StatsView({
         </div>
       </div>
 
-      {/* Charts */}
-      <div className="grid md:grid-cols-2 gap-6">
-        <ScoreChart data={scoreData} targetScore={goal?.target_average_score || 7} />
-        <CategoryPieChart data={categoryData} />
-      </div>
-
-      <WeeklyTrends data={weeklyData} />
-
-      {/* Weekly Goal Section */}
+      {/* Weekly Goal Section - moved up below stats */}
       <div className="neo-card p-6 space-y-4">
         <div className="flex items-center justify-between pb-4 border-b border-border/50">
           <div>
@@ -604,6 +596,14 @@ export function StatsView({
           </div>
         )}
       </div>
+
+      {/* Charts */}
+      <div className="grid md:grid-cols-2 gap-6">
+        <ScoreChart data={scoreData} targetScore={goal?.target_average_score || 7} />
+        <CategoryPieChart data={categoryData} />
+      </div>
+
+      <WeeklyTrends data={weeklyData} />
 
       {/* Categories - Links to settings */}
       <Link href="/account" className="block">

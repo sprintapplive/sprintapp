@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
@@ -31,6 +31,52 @@ export function DashboardNav({ user }: DashboardNavProps) {
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const { theme, setTheme } = useTheme();
 
+  // Hide on scroll state
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Handle scroll to hide/show navbar on mobile
+  useEffect(() => {
+    if (!isMobile) {
+      setIsVisible(true);
+      return;
+    }
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const scrollDiff = currentScrollY - lastScrollY;
+
+      // Only hide/show after scrolling a bit to avoid jitter
+      if (Math.abs(scrollDiff) < 10) return;
+
+      if (currentScrollY < 50) {
+        // Always show at top of page
+        setIsVisible(true);
+      } else if (scrollDiff > 0 && currentScrollY > 100) {
+        // Scrolling down - hide
+        setIsVisible(false);
+        setShowAccountMenu(false); // Close menu when hiding
+      } else if (scrollDiff < 0) {
+        // Scrolling up - show
+        setIsVisible(true);
+      }
+
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isMobile, lastScrollY]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/login');
@@ -41,10 +87,20 @@ export function DashboardNav({ user }: DashboardNavProps) {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
+  const handleAccountClick = () => {
+    setShowAccountMenu(false);
+    router.push('/account');
+  };
+
   const displayName = user.user_metadata?.display_name || user.email?.split('@')[0];
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
+    <header
+      className={cn(
+        'sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md transition-transform duration-300',
+        !isVisible && isMobile && '-translate-y-full'
+      )}
+    >
       <div className="container mx-auto px-4 max-w-4xl">
         <div className="flex h-16 items-center justify-between">
           {/* Logo and Brand */}
@@ -136,14 +192,13 @@ export function DashboardNav({ user }: DashboardNavProps) {
                   </div>
 
                   {/* Menu items */}
-                  <Link
-                    href="/account"
-                    onClick={() => setShowAccountMenu(false)}
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-card/50 transition-colors"
+                  <button
+                    onClick={handleAccountClick}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-card/50 transition-colors text-left"
                   >
                     <Settings className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm">Account Settings</span>
-                  </Link>
+                  </button>
                   <button
                     className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-card/50 transition-colors text-left"
                   >
