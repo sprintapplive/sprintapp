@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
-import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { DashboardNav } from '@/components/DashboardNav';
 import { Footer } from '@/components/Footer';
@@ -44,11 +43,6 @@ export default async function DashboardLayout({
   const weekStart = new Date(wYear, wMonth - 1, wDay);
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 7);
-
-  // Check if this is a non-swipeable route (like /account)
-  const headersList = await headers();
-  const pathname = headersList.get('x-pathname') || '';
-  const isAccountRoute = pathname === '/account';
 
   // Fetch all data in parallel
   const [
@@ -137,21 +131,6 @@ export default async function DashboardLayout({
   ) || null;
   const pastGoals = goalsResult.data?.filter(g => g.week_start !== weekStartStr) || [];
 
-  // For non-swipeable routes like /account, render children directly
-  if (isAccountRoute) {
-    return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <DashboardNav user={user} />
-        <main className="flex-1 container mx-auto px-4 py-6 max-w-4xl">
-          <Suspense fallback={<Loading />}>
-            {children}
-          </Suspense>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <DashboardNav user={user} />
@@ -171,6 +150,8 @@ export default async function DashboardLayout({
           weeklyStats={weeklyStatsResult.data || []}
           prevWeekStats={prevWeekStatsResult.data || []}
           userDisplayName={profileData?.display_name || user.email?.split('@')[0] || 'Anonymous'}
+          user={user}
+          profile={profileData}
         />
       </Suspense>
       <Footer />

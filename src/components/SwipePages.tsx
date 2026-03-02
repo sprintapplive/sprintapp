@@ -2,15 +2,17 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
+import { User } from '@supabase/supabase-js';
 import { cn } from '@/lib/utils';
 import { DailyView } from '@/components/DailyView';
 import { StatsView } from '@/components/StatsView';
 import { AgoraView } from '@/components/AgoraView';
+import { AccountView } from '@/components/AccountView';
 import { SprintMode } from '@/components/SprintMode';
-import { Category, Sprint, DailyWrapup, WeeklyGoal, WeeklyStats } from '@/lib/types';
+import { Category, Sprint, DailyWrapup, WeeklyGoal, WeeklyStats, Profile } from '@/lib/types';
 
-const PAGES = ['/agora', '/', '/stats'] as const;
-const PAGE_LABELS = ['Agora', 'Today', 'Stats'] as const;
+const PAGES = ['/agora', '/', '/stats', '/account'] as const;
+const PAGE_LABELS = ['Agora', 'Today', 'Stats', 'Account'] as const;
 
 interface SprintWithCategory extends Sprint {
   categories?: {
@@ -35,6 +37,8 @@ interface SwipePagesProps {
   weeklyStats: WeeklyStats[];
   prevWeekStats: { user_id: string; rank_position: number | null }[];
   userDisplayName: string;
+  user: User;
+  profile: Profile | null;
 }
 
 export function SwipePages({
@@ -52,6 +56,8 @@ export function SwipePages({
   weeklyStats,
   prevWeekStats,
   userDisplayName,
+  user,
+  profile,
 }: SwipePagesProps) {
   // Convert date strings to local Date objects on client side
   const todayDate = (() => {
@@ -176,6 +182,14 @@ export function SwipePages({
             wrapups={weekWrapups}
             weekStart={weekStart}
             userId={userId}
+          />
+        );
+      case 3:
+        return (
+          <AccountView
+            user={user}
+            profile={profile}
+            categories={categories}
           />
         );
       default:
