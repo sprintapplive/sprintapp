@@ -12,12 +12,6 @@ import { Category, Sprint, DailyWrapup, WeeklyGoal, WeeklyStats } from '@/lib/ty
 const PAGES = ['/agora', '/', '/stats'] as const;
 const PAGE_LABELS = ['Agora', 'Today', 'Stats'] as const;
 
-// Animation constants for smooth swiping
-const SPRING_TENSION = 300;
-const SPRING_DAMPING = 30;
-const VELOCITY_THRESHOLD = 0.3; // Lower threshold for more responsive swipes
-const DISTANCE_THRESHOLD = 0.15; // 15% of screen width
-
 interface SprintWithCategory extends Sprint {
   categories?: {
     name: string;
@@ -30,14 +24,14 @@ interface SwipePagesProps {
   todaySprints: Sprint[];
   categories: Category[];
   todayWrapup: DailyWrapup | null;
-  todayDateStr: string; // YYYY-MM-DD format to avoid timezone issues
+  todayDateStr: string;
   userId: string;
   weekSprints: SprintWithCategory[];
   allSprints: SprintWithCategory[];
   weeklyGoal: WeeklyGoal | null;
   pastGoals: WeeklyGoal[];
   weekWrapups: DailyWrapup[];
-  weekStartStr: string; // YYYY-MM-DD format to avoid timezone issues
+  weekStartStr: string;
   weeklyStats: WeeklyStats[];
   prevWeekStats: { user_id: string; rank_position: number | null }[];
   userDisplayName: string;
@@ -69,7 +63,11 @@ export function SwipePages({
     const [year, month, day] = weekStartStr.split('-').map(Number);
     return new Date(year, month - 1, day);
   })();
+
   const pathname = usePathname();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isScrollingRef = useRef(false);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const getPageIndex = (path: string) => {
     const idx = PAGES.indexOf(path as typeof PAGES[number]);
@@ -77,217 +75,74 @@ export function SwipePages({
   };
 
   const [currentIndex, setCurrentIndex] = useState(() => getPageIndex(pathname));
-  const [dragOffset, setDragOffset] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [containerWidth, setContainerWidth] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth : 375
-  );
 
-  const touchStartX = useRef<number | null>(null);
-  const touchStartY = useRef<number | null>(null);
-  const touchStartTime = useRef<number>(0);
-  const lastTouchX = useRef<number | null>(null);
-  const lastTouchTime = useRef<number>(0);
-  const velocityX = useRef<number>(0);
-  const isHorizontalSwipe = useRef<boolean | null>(null);
-  const canSwipe = useRef<boolean>(true);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const animationFrameRef = useRef<number | null>(null);
-
-  // Detect mobile vs desktop and track container width
+  // Detect mobile vs desktop
   useEffect(() => {
-    const updateDimensions = () => {
-      setIsMobile(window.innerWidth < 768);
-      // Use container width if available, otherwise window width
-      if (containerRef.current) {
-        setContainerWidth(containerRef.current.offsetWidth);
-      } else {
-        setContainerWidth(window.innerWidth);
-      }
-    };
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Sync with pathname on navigation
+  // Scroll to initial page on mount (for mobile)
   useEffect(() => {
-    const newIndex = getPageIndex(pathname);
-    if (newIndex !== currentIndex) {
-      setCurrentIndex(newIndex);
-    }
-  }, [pathname, currentIndex]);
-
-  // Clean up animation frame on unmount
-  useEffect(() => {
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, []);
-
-  // Smooth velocity calculation using exponential moving average
-  const updateVelocity = useCallback((currentX: number, currentTime: number) => {
-    if (lastTouchX.current !== null && lastTouchTime.current !== 0) {
-      const deltaTime = currentTime - lastTouchTime.current;
-      if (deltaTime > 0) {
-        const instantVelocity = (currentX - lastTouchX.current) / deltaTime;
-        // Exponential smoothing for more natural feel
-        velocityX.current = velocityX.current * 0.7 + instantVelocity * 0.3;
-      }
-    }
-    lastTouchX.current = currentX;
-    lastTouchTime.current = currentTime;
-  }, []);
-
-  // Define these first as they're used by handleTouchEnd
-  const resetTouch = useCallback(() => {
-    touchStartX.current = null;
-    touchStartY.current = null;
-    lastTouchX.current = null;
-    lastTouchTime.current = 0;
-    velocityX.current = 0;
-    isHorizontalSwipe.current = null;
-    setIsDragging(false);
-  }, []);
-
-  const animateToPosition = useCallback((targetOffset: number) => {
-    setIsAnimating(true);
-    setDragOffset(targetOffset);
-    // Reset animation state after transition completes
-    setTimeout(() => {
-      setIsAnimating(false);
-    }, 350);
-  }, []);
-
-  const navigateToPage = useCallback((index: number) => {
-    setIsAnimating(true);
-    setCurrentIndex(index);
-    setDragOffset(0);
-    window.history.replaceState(null, '', PAGES[index]);
-    setTimeout(() => {
-      setIsAnimating(false);
-    }, 350);
-  }, []);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (!isMobile || isAnimating) return;
-
-    // Ensure we have a valid container width before allowing swipes
-    if (!containerWidth || containerWidth === 0) return;
-
-    const isEditorOpen = document.querySelector('[data-editing="true"]') !== null;
-    canSwipe.current = !isEditorOpen;
-
-    if (!canSwipe.current) return;
-
-    const touch = e.touches[0];
-    touchStartX.current = touch.clientX;
-    touchStartY.current = touch.clientY;
-    touchStartTime.current = Date.now();
-    lastTouchX.current = touch.clientX;
-    lastTouchTime.current = Date.now();
-    velocityX.current = 0;
-    isHorizontalSwipe.current = null;
-    // Don't set isDragging yet - wait until we confirm it's a horizontal swipe
-  }, [isMobile, isAnimating, containerWidth]);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isMobile || !canSwipe.current || touchStartX.current === null || touchStartY.current === null) return;
-
-    const touch = e.touches[0];
-    const currentX = touch.clientX;
-    const currentY = touch.clientY;
-    const deltaX = currentX - touchStartX.current;
-    const deltaY = currentY - touchStartY.current;
-    const currentTime = Date.now();
-
-    // Determine swipe direction on first significant movement
-    if (isHorizontalSwipe.current === null && (Math.abs(deltaX) > 8 || Math.abs(deltaY) > 8)) {
-      isHorizontalSwipe.current = Math.abs(deltaX) > Math.abs(deltaY) * 1.2;
-      // Only start dragging mode once we confirm it's a horizontal swipe
-      if (isHorizontalSwipe.current) {
-        // Reset start position to current position so offset starts from 0
-        touchStartX.current = currentX;
-        setIsDragging(true);
-      }
-    }
-
-    if (isHorizontalSwipe.current) {
-      // Prevent vertical scrolling while horizontal swiping
-      e.preventDefault();
-
-      // Update velocity for momentum
-      updateVelocity(currentX, currentTime);
-
-      // Calculate offset from updated start position
-      const swipeDeltaX = currentX - touchStartX.current!;
-
-      // Apply resistance at boundaries with smoother curve
-      let offset = swipeDeltaX;
-      const resistance = 0.25;
-      if ((currentIndex === 0 && swipeDeltaX > 0) || (currentIndex === PAGES.length - 1 && swipeDeltaX < 0)) {
-        // Exponential resistance for more natural boundary feel
-        offset = Math.sign(swipeDeltaX) * Math.pow(Math.abs(swipeDeltaX), 0.7) * resistance;
-      }
-
-      // Cap offset to prevent over-swiping (max ~70% of page width)
-      const maxOffset = containerWidth * 0.7;
-      offset = Math.max(-maxOffset, Math.min(maxOffset, offset));
-
-      // Use requestAnimationFrame for smoother updates
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      animationFrameRef.current = requestAnimationFrame(() => {
-        setDragOffset(offset);
+    if (isMobile && scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const initialIndex = getPageIndex(pathname);
+      // Use instant scroll on mount
+      container.scrollTo({
+        left: initialIndex * container.offsetWidth,
+        behavior: 'instant',
       });
     }
-  }, [isMobile, currentIndex, updateVelocity, containerWidth]);
+  }, [isMobile, pathname]);
 
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!isMobile || !canSwipe.current || touchStartX.current === null) {
-      resetTouch();
-      return;
+  // Handle scroll end to detect which page we're on
+  const handleScroll = useCallback(() => {
+    if (!scrollContainerRef.current || isScrollingRef.current) return;
+
+    // Clear existing timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
     }
 
-    const touchEndX = e.changedTouches[0].clientX;
-    const deltaX = touchEndX - touchStartX.current;
-    const pageWidth = containerWidth || window.innerWidth;
+    // Debounce scroll end detection
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (!scrollContainerRef.current) return;
 
-    // Use both velocity and distance for determining page change
-    const velocity = velocityX.current;
-    const distanceRatio = Math.abs(deltaX) / pageWidth;
+      const container = scrollContainerRef.current;
+      const pageWidth = container.offsetWidth;
+      const scrollLeft = container.scrollLeft;
+      const newIndex = Math.round(scrollLeft / pageWidth);
 
-    // More responsive: either fast swipe OR sufficient distance
-    const isFastSwipe = Math.abs(velocity) > VELOCITY_THRESHOLD;
-    const isSufficientDistance = distanceRatio > DISTANCE_THRESHOLD;
-    const shouldChangePage = (isFastSwipe || isSufficientDistance) && isHorizontalSwipe.current;
-
-    if (shouldChangePage) {
-      // Determine direction based on velocity if fast swipe, otherwise by distance
-      const direction = isFastSwipe ? Math.sign(velocity) : Math.sign(deltaX);
-
-      if (direction > 0 && currentIndex > 0) {
-        navigateToPage(currentIndex - 1);
-      } else if (direction < 0 && currentIndex < PAGES.length - 1) {
-        navigateToPage(currentIndex + 1);
-      } else {
-        // Bounce back with animation
-        animateToPosition(0);
+      if (newIndex !== currentIndex && newIndex >= 0 && newIndex < PAGES.length) {
+        setCurrentIndex(newIndex);
+        window.history.replaceState(null, '', PAGES[newIndex]);
       }
-    } else {
-      // Snap back to current page
-      animateToPosition(0);
-    }
+    }, 50);
+  }, [currentIndex]);
 
-    resetTouch();
-  }, [isMobile, currentIndex, containerWidth, navigateToPage, animateToPosition, resetTouch]);
+  // Navigate to a specific page
+  const navigateToPage = useCallback((index: number) => {
+    if (!scrollContainerRef.current) return;
 
-  // Render the current page content
+    isScrollingRef.current = true;
+    setCurrentIndex(index);
+    window.history.replaceState(null, '', PAGES[index]);
+
+    scrollContainerRef.current.scrollTo({
+      left: index * scrollContainerRef.current.offsetWidth,
+      behavior: 'smooth',
+    });
+
+    // Reset scrolling flag after animation
+    setTimeout(() => {
+      isScrollingRef.current = false;
+    }, 400);
+  }, []);
+
+  // Render page content
   const renderPage = (index: number) => {
     switch (index) {
       case 0:
@@ -335,54 +190,42 @@ export function SwipePages({
         <main className="flex-1 container mx-auto px-4 py-6 max-w-4xl">
           {renderPage(currentIndex)}
         </main>
-        {/* Sprint Mode - rendered outside main for proper fixed positioning */}
         {currentIndex === 1 && <SprintMode />}
       </>
     );
   }
 
-  // Mobile: Swipeable pages with smooth animations
-  const pageWidth = containerWidth || window.innerWidth;
-
+  // Mobile: CSS scroll-snap for native smooth swiping
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Horizontal scroll container with snap */}
       <div
-        ref={containerRef}
-        className="flex-1 overflow-hidden touch-pan-y"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        ref={scrollContainerRef}
+        className="flex-1 flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory scrollbar-hide"
+        onScroll={handleScroll}
+        style={{
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
       >
-        <div
-          className="h-full flex items-start will-change-transform"
-          style={{
-            width: `${PAGES.length * pageWidth}px`,
-            transform: `translate3d(${-currentIndex * pageWidth + dragOffset}px, 0, 0)`,
-            transition: isDragging
-              ? 'none'
-              : 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)',
-            backfaceVisibility: 'hidden',
-            WebkitBackfaceVisibility: 'hidden',
-          }}
-        >
-          {PAGES.map((_, index) => (
-            <div
-              key={PAGES[index]}
-              className="h-full overflow-y-auto overscroll-y-contain flex-shrink-0"
-              style={{
-                width: `${pageWidth}px`,
-                WebkitOverflowScrolling: 'touch',
-              }}
-            >
-              <div className="container mx-auto px-4 py-6 max-w-4xl min-h-full">
-                {renderPage(index)}
-              </div>
+        {PAGES.map((page, index) => (
+          <div
+            key={page}
+            className="w-full h-full flex-shrink-0 snap-start snap-always overflow-y-auto"
+            style={{
+              minWidth: '100%',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
+            <div className="container mx-auto px-4 py-6 max-w-4xl">
+              {renderPage(index)}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
 
-      {/* Page indicator dots with smooth transitions */}
+      {/* Page indicator dots */}
       <div className="flex items-center justify-center gap-2 py-3 bg-background border-t border-border/20">
         {PAGES.map((page, index) => (
           <button
@@ -399,7 +242,7 @@ export function SwipePages({
         ))}
       </div>
 
-      {/* Sprint Mode - rendered outside overflow container for proper fixed positioning on mobile */}
+      {/* Sprint Mode */}
       {currentIndex === 1 && <SprintMode />}
     </div>
   );

@@ -307,6 +307,16 @@
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background: rgba(74, 103, 65, 0.6);
   }
+
+  /* Hide scrollbar utility */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Custom range input styling */
