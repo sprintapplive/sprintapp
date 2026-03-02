@@ -9,13 +9,13 @@ import {
   Clock, Award, Flame, Zap, Star, Target
 } from 'lucide-react';
 
-// Greek columns SVG component - slowly rotating
+// Greek columns SVG component - slowly rotating (hidden on mobile to prevent layout issues)
 function GreekColumns() {
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ maxHeight: '100vh' }}>
+    <div className="hidden md:block absolute inset-0 overflow-hidden pointer-events-none h-0">
       <svg
         viewBox="0 0 800 800"
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-[600px] max-h-[600px] opacity-[0.03] dark:opacity-[0.05] animate-spin-slow"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] opacity-[0.03] dark:opacity-[0.05] animate-spin-slow"
       >
         {/* Circular arrangement of columns */}
         {Array.from({ length: 12 }).map((_, i) => {
@@ -384,16 +384,21 @@ export function AgoraView({
               <div
                 key={badge.id}
                 className={cn(
-                  'relative flex items-center gap-4 p-4 rounded-xl border transition-all',
+                  'relative flex items-center gap-4 p-4 rounded-xl border transition-all overflow-hidden',
                   isUnlocked
                     ? `bg-gradient-to-br ${badge.color} ${badge.borderColor}`
-                    : 'bg-card/50 border-border/30 opacity-60'
+                    : 'bg-card/50 border-border/30'
                 )}
               >
+                {/* Shimmer effect for locked badges */}
+                {!isUnlocked && (
+                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_3s_infinite] bg-gradient-to-r from-transparent via-white/5 to-transparent" />
+                )}
+
                 {/* Badge icon */}
                 <div
                   className={cn(
-                    'w-14 h-14 rounded-xl flex items-center justify-center',
+                    'w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0',
                     isUnlocked
                       ? 'bg-black/20'
                       : 'bg-muted/30'
@@ -408,18 +413,18 @@ export function AgoraView({
                 </div>
 
                 {/* Badge info */}
-                <div className="flex-1">
+                <div className={cn('flex-1 min-w-0', !isUnlocked && 'pr-12')}>
                   <div className="flex items-center gap-2">
                     <h3
                       className={cn(
-                        'font-bold text-lg',
+                        'font-bold text-lg truncate',
                         isUnlocked ? 'text-white' : 'text-muted-foreground'
                       )}
                     >
                       {badge.name}
                     </h3>
                     {isUnlocked && (
-                      <span className="px-2 py-0.5 rounded-full bg-black/30 text-white text-xs font-bold">
+                      <span className="px-2 py-0.5 rounded-full bg-black/30 text-white text-xs font-bold flex-shrink-0">
                         ×{badge.count}
                       </span>
                     )}
@@ -436,7 +441,7 @@ export function AgoraView({
 
                 {/* Lock indicator for locked badges */}
                 {!isUnlocked && (
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                  <div className="flex-shrink-0">
                     <div className="w-8 h-8 rounded-full bg-muted/20 flex items-center justify-center">
                       <Shield className="h-4 w-4 text-muted-foreground/30" />
                     </div>
