@@ -48,8 +48,31 @@ export type Profile = {
   email: string;
   display_name: string | null;
   timezone: string;
+  golden_rings: number;
+  status: 'Olympian' | 'Spartan' | 'Helot';
   created_at: string;
   updated_at: string;
+};
+
+// Olympics Mode types
+export type OlympicsLap = {
+  id: number;
+  title: string;
+  allocatedMinutes: number;
+  completed: boolean;
+  actualMinutes?: number;
+};
+
+export type OlympicsSessionState = 'setup' | 'racing' | 'won' | 'lost';
+
+export type OlympicsSession = {
+  state: OlympicsSessionState;
+  laps: OlympicsLap[];
+  currentLapIndex: number;
+  masterTimeRemaining: number; // seconds
+  bankedTime: number; // seconds
+  lapStartTime: number; // timestamp when current lap started
+  isOvertime: boolean; // true when current lap has exceeded allocation
 };
 
 // Agora types

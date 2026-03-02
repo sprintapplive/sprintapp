@@ -133,7 +133,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <DashboardNav user={user} />
+      <DashboardNav user={user} goldenRings={profileData?.golden_rings} />
       <Suspense fallback={<Loading />}>
         <SwipePages
           todaySprints={todaySprintsResult.data || []}

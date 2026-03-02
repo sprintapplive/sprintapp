@@ -7,22 +7,24 @@ import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { User } from '@supabase/supabase-js';
 import {
-  Calendar, BarChart3, Users, Sun, Moon, Settings
+  Calendar, BarChart3, Users, Sun, Moon, Settings, Trophy, Coins
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface DashboardNavProps {
   user: User;
+  goldenRings?: number;
 }
 
 const navItems = [
   { href: '/agora', label: 'Agora', icon: Users },
   { href: '/', label: 'Today', icon: Calendar },
+  { href: '/olympics', label: 'Olympics', icon: Trophy, special: true },
   { href: '/stats', label: 'Stats', icon: BarChart3 },
   { href: '/account', label: 'Account', icon: Settings },
 ];
 
-export function DashboardNav({ user }: DashboardNavProps) {
+export function DashboardNav({ user, goldenRings }: DashboardNavProps) {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
 
@@ -101,6 +103,7 @@ export function DashboardNav({ user }: DashboardNavProps) {
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
+              const isSpecial = 'special' in item && item.special;
               return (
                 <Link
                   key={item.href}
@@ -109,15 +112,33 @@ export function DashboardNav({ user }: DashboardNavProps) {
                     'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold italic transition-all',
                     isActive
                       ? 'bg-laurel-700/50 text-gold-400 shadow-[0_0_15px_rgba(74,103,65,0.3)]'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
+                      : isSpecial
+                        ? 'text-gold-400 hover:text-gold-300 hover:bg-gold-400/10'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
                   )}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className={cn('h-4 w-4', isSpecial && !isActive && 'text-gold-400')} />
                   {item.label}
                 </Link>
               );
             })}
           </nav>
+
+          {/* Golden Rings Balance */}
+          {goldenRings !== undefined && (
+            <Link
+              href="/olympics"
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all',
+                'bg-gold-400/10 hover:bg-gold-400/20',
+                'text-gold-400 font-bold text-sm'
+              )}
+              title="Golden Rings - Enter Olympics Mode"
+            >
+              <Coins className="h-4 w-4" />
+              <span>{goldenRings}</span>
+            </Link>
+          )}
 
           {/* Theme Toggle */}
           <button
